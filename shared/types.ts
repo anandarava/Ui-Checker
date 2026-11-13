@@ -280,10 +280,31 @@ export interface ScanResult {
   rules: RuleResult[];
   /** The design scale of the page (PLAN.md, Phase 5); absent in results of older scans. */
   audit?: DesignAudit;
+  /** The parts the page shares with the other pages of its site; a site scan compares them across pages. */
+  parts?: SharedPart[];
   /** Parts of the page the scan could not read (closed shadow roots, cross-origin frames, canvas...). */
   notScanned: string[];
   /** Things that make the measurements less reliable (fonts still loading, layout still changing). */
   warnings: string[];
+}
+
+/**
+ * A part a page shares with the other pages of its site: the page title, the
+ * header, the navigation, the footer or a tab bar (src/content/parts.ts).
+ */
+export interface SharedPart {
+  /** The same part has the same key on every page: "pageTitle", "navigation:side:1"... */
+  key: string;
+  kind: "pageTitle" | "header" | "navigation" | "footer" | "tabs";
+  /** As shown: "Page title", "Side navigation". */
+  name: string;
+  element: ElementRef;
+  /** The text of a page title. */
+  text?: string;
+  /** Text style of the part (of its first item with text, for a navigation or tab bar) and the background behind it. */
+  style: { fontFamily: string; fontSize: number; fontWeight: number; color: string; backgroundColor: string };
+  /** The links, buttons or tabs of a navigation or tab bar, in order. */
+  items?: Array<{ text: string; icon: boolean }>;
 }
 
 /** What the list of saved scans shows; the full result is loaded only when a scan is opened. */

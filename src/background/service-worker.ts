@@ -6,9 +6,10 @@
 import { isMessage, isScanResult, sendToTab, type Message, type Response } from "@shared/messages";
 import { STORAGE_RESULT_PREFIX, STORAGE_SETTINGS, STORAGE_STATUS_PREFIX, STORAGE_TOKENS } from "@shared/constants";
 import { withFindings } from "@shared/scoring";
-import { DEFAULT_SETTINGS, type DesignTokens, type FindingStatus, type ScanResult, type Settings, type StoredStatus } from "@shared/types";
+import { DEFAULT_SETTINGS, type DesignTokens, type FindingStatus, type ScanOptions, type ScanResult, type Settings, type StoredStatus } from "@shared/types";
 import { captureEvidence } from "./evidence";
-import { buildReport } from "./exporters";
+import { buildMultiPageReport, buildReport } from "./exporters";
+import { handleSiteScanMessage, initSiteScan, isSiteScanMessage } from "./site-scan";
 import { ensureContentScript } from "./injector";
 import { deleteSavedScan, getSavedScan, listSavedScans, renameSavedScan, saveScan } from "./storage";
 
@@ -124,7 +125,21 @@ async function setStatus(tabId: number, fingerprints: string[], status: FindingS
 
 const scanning = new Set<number>();
 
-async function startScan(msg: Extract<Message, { type: "SCAN_START" }>): Promise<Response<ScanResult>> {
+/** Keeps the service worker alive while a long job (a site scan) runs. */
+function keepAlive(): () => void {
+  const timer = setInterval(() => {
+    void chrome.runtime.getPlatformInfo().catch(() => undefined);
+  }, 20_000);
+  return () => clearInterval(timer);
+}
+
+/** The scan options a scan gets when nothing else is asked for: the settings and the design tokens. */
+async function defaultScanOptions(): Promise<ScanOptions> {
+  const settings = await getSettings();
+  return { scope: "page", tolerancePreset: settings.tolerancePreset, rules: [] };
+}
+
+async function startScan(msg: { tabId: number; options: ScanOptions }): Promise<Response<ScanResult>> {
   const { tabId } = msg;
   if (scanning.has(tabId)) return { ok: false, error: "A scan is already running for this tab." };
   scanning.add(tabId);
@@ -187,6 +202,7 @@ async function exportReport(msg: Extract<Message, { type: "EXPORT_REPORT" }>): P
 // ---------------------------------------------------------------------------
 
 async function handle(msg: Message): Promise<Response> {
+  if (isSiteScanMessage(msg)) return { ok: true, data: await handleSiteScanMessage(msg) };
   switch (msg.type) {
     case "SCAN_START":
       return startScan(msg);
@@ -223,10 +239,22 @@ async function handle(msg: Message): Promise<Response> {
       await deleteSavedScan(msg.id);
       return { ok: true };
     case "SAVED_SCAN_EXPORT": {
-      const saved = await getSavedScan(msg.id);
-      if (!saved) return { ok: false, error: "That saved scan no longer exists." };
+      // A page opened from the site scan list has the id "<site scan id>:<page index>".
+      const sitePage = /^site_[^:]+:(\d+)$/.exec(msg.id);
+      const result = sitePage ? ((await handleSiteScanMessage({ type: "SITE_SCAN_RESULT", index: Number(sitePage[1]) })) as ScanResult) : (await getSavedScan(msg.id))?.result;
+      if (!result) return { ok: false, error: "That saved scan no longer exists." };
       const settings = await getSettings();
-      return { ok: true, data: buildReport(msg.format, saved.result, { preparedBy: settings.reportPreparedBy, organisation: settings.reportOrganisation }) };
+      return { ok: true, data: buildReport(msg.format, result, { preparedBy: settings.reportPreparedBy, organisation: settings.reportOrganisation }) };
+    }
+    case "SAVED_SCANS_EXPORT": {
+      const results: ScanResult[] = [];
+      for (const id of msg.ids) {
+        const saved = await getSavedScan(id);
+        if (!saved) return { ok: false, error: "One of the selected saved scans no longer exists." };
+        results.push(saved.result);
+      }
+      const settings = await getSettings();
+      return { ok: true, data: buildMultiPageReport(msg.format, results, { preparedBy: settings.reportPreparedBy, organisation: settings.reportOrganisation }) };
     }
     case "GET_SETTINGS":
       return { ok: true, data: await getSettings() };
@@ -237,10 +265,26 @@ async function handle(msg: Message): Promise<Response> {
 }
 
 /** Messages the service worker answers. Everything else is a broadcast meant for the UI. */
-const REQUESTS = new Set<Message["type"]>(["SCAN_START", "GET_LAST_RESULT", "RESET_RESULT", "GET_SETTINGS", "SET_STATUS", "EXPORT_REPORT", "SAVED_SCANS_LIST", "SAVED_SCAN_SAVE", "SAVED_SCAN_GET", "SAVED_SCAN_RENAME", "SAVED_SCAN_DELETE", "SAVED_SCAN_EXPORT"]);
+const REQUESTS = new Set<Message["type"]>(["SCAN_START", "GET_LAST_RESULT", "RESET_RESULT", "GET_SETTINGS", "SET_STATUS", "EXPORT_REPORT", "SAVED_SCANS_LIST", "SAVED_SCAN_SAVE", "SAVED_SCAN_GET", "SAVED_SCAN_RENAME", "SAVED_SCAN_DELETE", "SAVED_SCAN_EXPORT", "SAVED_SCANS_EXPORT"]);
+
+initSiteScan({
+  scan: async (tabId, options) => {
+    const res = await startScan({ tabId, options });
+    if (!res.ok || !res.data) throw new Error(res.error ?? "The page could not be scanned.");
+    return res.data;
+  },
+  scanOptions: defaultScanOptions,
+  photograph: async (tabId, result) => (await captureEvidence(tabId, result, () => undefined)).result,
+  exportResults: async (format, results) => {
+    const settings = await getSettings();
+    return buildMultiPageReport(format, results, { preparedBy: settings.reportPreparedBy, organisation: settings.reportOrganisation });
+  },
+  broadcast,
+  keepAlive,
+});
 
 chrome.runtime.onMessage.addListener((raw: unknown, _sender, sendResponse: (r: Response) => void) => {
-  if (!isMessage(raw) || !REQUESTS.has(raw.type)) return false;
+  if (!isMessage(raw) || !(REQUESTS.has(raw.type) || isSiteScanMessage(raw))) return false;
   handle(raw).then(sendResponse, (e) => sendResponse({ ok: false, error: describeError(e) }));
   return true; // answered asynchronously
 });

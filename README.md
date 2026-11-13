@@ -16,11 +16,11 @@ extension, so testers who know one already know the other.
 
 ## Status
 
-**Phases 0 to 5 are done.** The scan measures every visible element of the
+**Phases 0 to 6 are done.** The scan measures every visible element of the
 page, finds the *peer groups* (the elements that should look the same) and runs
-**all 27 rules** on them: typography, layout and spacing, group structure, box
+**all 28 rules** on them: typography, layout and spacing, group structure, box
 style, and text and content (cut-off and shortened text, value formats, link
-style). Differences that are often intentional (a colour on its own, a
+style, images that do not load). Differences that are often intentional (a colour on its own, a
 featured card, a sort icon on some columns) are listed for review instead of as
 defects.
 
@@ -35,7 +35,14 @@ the page with how often each is used, outlines every use of a value on the
 page, and marks the values that stand out: used once, off the spacing grid the
 page follows, or almost the same as another colour. Load your team's design
 tokens (Figma tokens or any design-token JSON) on the options page and the
-values are checked against the tokens instead. See [PLAN.md](PLAN.md) for the
+values are checked against the tokens instead.
+
+**Saved scans** keep a result under a name; two scans compare as new, fixed and
+unchanged issues. A **site scan** finds the pages of an application, scans them
+one after another at the screen width you choose, and compares the parts they
+share (page title, header, navigation, footer, tab bars) across the pages. The
+same scan runs in a **Playwright test** with a baseline, so a build fails only
+on new issues: see [ci/README.md](ci/README.md). See [PLAN.md](PLAN.md) for the
 phases.
 
 | Phase | What | Status |
@@ -47,7 +54,7 @@ phases.
 | 3B | Consistency rules: second wave | Done |
 | 4 | Results UI and reports | Done |
 | 5 | Page-wide design-scale audit | Done |
-| 6 | Site scan, CI package, cross-page checks | Next |
+| 6 | Site scan, CI package, cross-page checks | Done |
 | 7 | AI assist (optional, off by default) | |
 
 ## Run it
@@ -75,6 +82,7 @@ npm run fixtures        # serves the fixtures at http://127.0.0.1:4174/
 | `npm run build` | Type-check and build the extension into `dist/` |
 | `npm test` | Unit tests (Vitest, jsdom) |
 | `npm run test:e2e` | Browser tests: loads `dist/` into Chromium and scans every fixture, and checks the snapshot engine against real layout. Run `npm run build` first. The first run needs `npx playwright install chromium` |
+| `UICHECK_URL=<page> npx playwright test -c ci/playwright.config.ts` | Scan a page in a Playwright test and fail on issues that are not in the baseline (see `ci/README.md`) |
 | `npm run fixtures:build` | Rebuild the fixture pages from `fixtures/src` |
 | `npm run fixtures:check` | Fail when a fixture page is out of date |
 | `node scripts/make-rules.mjs` | Rewrite `shared/ui-rules.json` from the table in the script |
@@ -98,6 +106,7 @@ src/content/       Runs in the page. scanner.ts is the scan pipeline
 src/sidepanel/     The side panel (React).
 src/options/       The options page: tolerances, rules, baselines, import and export.
 src/devtools/      The same panel as a DevTools panel.
+ci/                The scan for Playwright tests, with baselines (ui-check.ts) and a sample test.
 fixtures/tokens/   A sample design-token file for the dashboard fixture.
 fixtures/src/      Fixture templates. One template gives a "defects" and a "clean" page.
 fixtures/          Generated fixture pages. Do not edit by hand.

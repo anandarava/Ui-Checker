@@ -12,7 +12,7 @@ import { withFindings } from "@shared/scoring";
 import { getRule } from "@shared/rules";
 import { DEFAULT_SETTINGS, type Finding, type FindingStatus, type PageChangeReason, type RuleCategory, type SavedScanMeta, type ScanResult, type Settings, type Severity } from "@shared/types";
 
-export type View = "list" | "detail" | "saved" | "compare";
+export type View = "list" | "detail" | "saved" | "compare" | "site";
 
 /** One side of a comparison: the scan on screen, or a saved one. */
 export type CompareSide = { kind: "current" } | { kind: "saved"; id: string };

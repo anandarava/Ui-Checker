@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "PalTech UI Consistency Checker",
   "short_name": "PalTech UI Check",
-  "version": "0.5.0",
-  "version_name": "0.5.0-phase5",
+  "version": "0.6.0",
+  "version_name": "0.6.0-phase6",
   "description": "Scan pages for uneven padding, misaligned layout and mismatched fonts between elements that should look the same.",
   "minimum_chrome_version": "116",
   "action": {

@@ -17,6 +17,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SavedScanMeta, ScanOptions, ScanResult } from "@shared/types";
+import { DEFAULT_SITE_SCAN_OPTIONS, type SiteScanState } from "@shared/site-crawl";
 import type { Message, Response } from "@shared/messages";
 import catalogue from "../../shared/ui-rules.json" with { type: "json" };
 
@@ -32,9 +33,44 @@ const SCAN_OPTIONS: ScanOptions = { scope: "page", tolerancePreset: "normal", ru
 // Fixture server (node:http, no dependencies)
 // ---------------------------------------------------------------------------
 
+/**
+ * A small made-up application of twenty pages under /site/, for the site scan.
+ * Every page has the same header, page title, side navigation and cards.
+ * Three pages differ from the others in a part they share, and one page has
+ * an inconsistency of its own:
+ *   invoices   the page title starts 6px further right
+ *   reports    the page title is 32px instead of 28px
+ *   settings   the first navigation item shows no label
+ *   products   one of its three cards has more padding
+ */
+const SITE_PAGES = ["home", "orders", "customers", "products", "invoices", "payments", "reports", "settings", "profile", "teams", "projects", "tasks", "calendar", "messages", "documents", "billing", "audit", "integrations", "support", "about"];
+
+function sitePage(name: string): string {
+  const title = name.charAt(0).toUpperCase() + name.slice(1);
+  const nav = SITE_PAGES.map((p, i) => `<a href="/site/${p}.html"><span class="ic"></span>${name === "settings" && i === 0 ? "" : `<span>${p.charAt(0).toUpperCase() + p.slice(1)}</span>`}</a>`).join("");
+  const card = (n: number): string => `<section class="card"${name === "products" && n === 2 ? ' style="padding: 30px 16px"' : ""}><h2>Summary ${n}</h2><p>Made-up text for the ${name} page.</p></section>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${title} · Example app</title><style>
+    * { box-sizing: border-box; } body { margin: 0; font: 15px/1.4 system-ui, sans-serif; color: #1c2b33; background: #f3f4f6; display: flex; }
+    nav { width: 200px; flex: none; min-height: 100vh; background: #14315c; padding: 16px 0; }
+    nav a { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 16px; color: #fff; text-decoration: none; font-size: 14px; }
+    .ic { width: 16px; height: 16px; flex: none; border-radius: 3px; background: #9fb6d9; }
+    .main { flex: 1; min-width: 0; }
+    header { height: 64px; background: #fff; display: flex; align-items: center; padding: 0 24px; }
+    h1 { margin: 0 0 0 ${name === "invoices" ? 6 : 0}px; font-size: ${name === "reports" ? 32 : 28}px; font-weight: 600; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 24px; }
+    .card { background: #fff; border: 1px solid #d5d9dc; border-radius: 8px; padding: 16px; } h2 { margin: 0 0 8px; font-size: 18px; } p { margin: 0; }
+  </style></head><body><nav aria-label="Main">${nav}</nav><div class="main"><header><h1>${title}</h1></header><div class="cards">${card(1)}${card(2)}${card(3)}</div></div></body></html>`;
+}
+
 function serveFixtures(req: IncomingMessage, res: ServerResponse): void {
   try {
     const url = new URL(req.url ?? "/", "http://localhost");
+    const site = /^\/site\/([a-z]+)\.html$/.exec(url.pathname);
+    if (site && SITE_PAGES.includes(site[1])) {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      res.end(sitePage(site[1]));
+      return;
+    }
     const pathname = decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname);
     const file = path.resolve(FIXTURES, "." + pathname);
     if (!file.startsWith(FIXTURES + path.sep) || !existsSync(file) || !statSync(file).isFile()) {
@@ -66,17 +102,18 @@ function startServer(): Promise<{ server: Server; baseUrl: string }> {
 // Extension launch helpers
 // ---------------------------------------------------------------------------
 
-async function launchWithExtension(extensionDir: string): Promise<{ context: BrowserContext; userDataDir: string }> {
+/** `viewport` null lets every window have the size it was opened with, as in a real browser. */
+async function launchWithExtension(extensionDir: string, viewport: { width: number; height: number } | null = { width: 1440, height: 900 }): Promise<{ context: BrowserContext; userDataDir: string }> {
   const userDataDir = mkdtempSync(path.join(tmpdir(), "ui-check-profile-"));
   const headed = process.env.UICHECK_E2E_HEADED === "1";
   const args = [`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`, "--no-first-run", "--no-default-browser-check"];
   try {
     // The "chromium" channel is the full Chromium build, which supports
     // extensions in headless mode (the default headless shell does not).
-    const context = await chromium.launchPersistentContext(userDataDir, { channel: "chromium", headless: !headed, args, viewport: { width: 1440, height: 900 } });
+    const context = await chromium.launchPersistentContext(userDataDir, { channel: "chromium", headless: !headed, args, viewport });
     return { context, userDataDir };
   } catch {
-    const context = await chromium.launchPersistentContext(userDataDir, { headless: false, args, viewport: { width: 1440, height: 900 } });
+    const context = await chromium.launchPersistentContext(userDataDir, { headless: false, args, viewport });
     return { context, userDataDir };
   }
 }
@@ -749,6 +786,150 @@ test.describe("extension", () => {
 
     await panel.close();
     await page.close();
+  });
+
+  test("a 20-page site scan finishes, compares the pages and gives one report", async () => {
+    test.setTimeout(420_000);
+    const site = async (): Promise<SiteScanState | null> => (await sendToBackground<SiteScanState | null>(helper, { type: "SITE_SCAN_GET" })).data ?? null;
+    await sendToBackground(helper, { type: "SITE_SCAN_CLEAR" });
+
+    // The panel starts it: the address of the application, then the pages it found.
+    const panel = await context.newPage();
+    await panel.goto(`chrome-extension://${extensionId}/src/sidepanel/index.html?tabId=0`);
+    await panel.getByRole("button", { name: "Site Scan" }).click();
+    const view = panel.getByTestId("site-scan");
+    await expect(view.getByRole("heading", { name: "Site scan" })).toBeVisible();
+    await view.getByLabel("Application address").fill(`${baseUrl}/site/home.html`);
+    await view.getByRole("button", { name: /Find pages|Look for pages|Start/ }).first().click();
+    await expect.poll(async () => (await site())?.phase, { timeout: 120_000 }).toBe("review");
+    const found = (await site())!;
+    expect(found.pages.filter((p) => p.include).map((p) => new URL(p.url).pathname).sort()).toEqual(SITE_PAGES.map((p) => `/site/${p}.html`).sort());
+    await expect(view).toContainText("20 pages found");
+    await shot(panel, "panel-site-review");
+
+    // Scan them: each page is opened in a window of its own and scanned with the normal scan.
+    await sendToBackground(helper, { type: "SITE_SCAN_START" });
+    await expect.poll(async () => (await site())?.phase, { timeout: 360_000, intervals: [2000] }).toBe("done");
+    const done = (await site())!;
+    expect(done.pages.filter((p) => p.status === "done")).toHaveLength(20);
+    expect(done.pages.every((p) => typeof p.score === "number")).toBe(true);
+    // One page has an inconsistency of its own; the others have none.
+    const withIssues = done.pages.filter((p) => (p.definite ?? 0) > 0).map((p) => new URL(p.url).pathname);
+    expect(withIssues).toEqual(["/site/products.html"]);
+
+    // Across pages: the three pages that differ in a shared part, and nothing else.
+    const cross = done.crossPage ?? [];
+    const differing = (property: RegExp): string[] => cross.filter((f) => property.test(f.property)).flatMap((f) => f.pages.filter((p) => p.differs).map((p) => new URL(p.url).pathname));
+    expect(differing(/^left edge$/)).toEqual(["/site/invoices.html"]);
+    expect(differing(/^font size$/)).toEqual(["/site/reports.html"]);
+    expect(differing(/^label of item 1/)).toEqual(["/site/settings.html"]);
+    const title = cross.find((f) => f.part === "Page title" && f.property === "left edge")!;
+    expect(title).toMatchObject({ type: "Definite", severity: "High", expected: "224px" });
+    expect(title.message).toBe("Page title left edge is 230px on 1 page; 19 of the 20 pages have 224px.");
+    expect(cross.filter((f) => f.type === "Definite").map((f) => `${f.part}: ${f.property}`).sort()).toEqual(
+      ['Page title: font size', 'Page title: left edge', 'Side navigation: label of item 1 ("Home")'].sort(),
+    );
+
+    // The panel shows the result and the comparison.
+    await expect(view).toContainText("20 pages scanned");
+    const across = view.getByTestId("across-pages");
+    await expect(across).toContainText("3 differences");
+    await expect(across).toContainText("Page title: left edge");
+    await shot(panel, "panel-site-done");
+
+    // One page, read-only, and back.
+    await view.getByRole("button", { name: "View results for /site/products.html" }).click();
+    await expect(panel.getByText("Site scan · Products · Example app")).toBeVisible();
+    await expect(panel.getByTestId("issue-list")).toContainText("Inner padding differs");
+    await panel.getByRole("button", { name: "Back to site scan" }).click();
+    await expect(view.getByRole("heading", { name: "Site scan" })).toBeVisible();
+
+    // One report for the whole site.
+    const html = (await sendToBackground<{ filename: string; content: string }>(helper, { type: "SITE_SCAN_EXPORT", format: "html" })).data!;
+    expect(html.filename).toBe("127.0.0.1_UI_Consistency_Site_Report.html");
+    expect(html.content).toContain("20 pages");
+    expect(html.content).toContain("Page title: left edge");
+    expect(html.content).toContain('id="page-20"');
+    const json = JSON.parse((await sendToBackground<{ content: string }>(helper, { type: "SITE_SCAN_EXPORT", format: "json" })).data!.content) as { pageCount: number; crossPage: unknown[]; pages: ScanResult[] };
+    expect(json.pageCount).toBe(20);
+    expect(json.crossPage.length).toBe(cross.length);
+    if (process.env.UICHECK_E2E_SHOTS) {
+      const { writeFileSync } = await import("node:fs");
+      const file = path.join(process.env.UICHECK_E2E_SHOTS, "site-report.html");
+      writeFileSync(file, html.content);
+      const report = await context.newPage();
+      await report.goto(`file://${file.replace(/\\/g, "/")}`);
+      await report.screenshot({ path: path.join(process.env.UICHECK_E2E_SHOTS, "site-report.png") });
+      await report.locator("#h-cross").scrollIntoViewIfNeeded();
+      await report.screenshot({ path: path.join(process.env.UICHECK_E2E_SHOTS, "site-report-cross.png") });
+      await report.close();
+    }
+
+    await sendToBackground(helper, { type: "SITE_SCAN_CLEAR" });
+    expect(await site()).toBeNull();
+    await panel.close();
+  });
+
+  test("a site scan runs at the screen width asked for, and saved scans export as one report", async () => {
+    test.setTimeout(240_000);
+    const site = async (): Promise<SiteScanState | null> => (await sendToBackground<SiteScanState | null>(helper, { type: "SITE_SCAN_GET" })).data ?? null;
+    await sendToBackground(helper, { type: "SITE_SCAN_CLEAR" });
+
+    // Two pages, at the width of a tablet. The other tests run with every window forced to 1440px;
+    // this part needs a browser whose windows keep their own size.
+    const own = await launchWithExtension(DIST, null);
+    try {
+      const ownWorker = await waitForServiceWorker(own.context);
+      const ownHelper = await own.context.newPage();
+      await ownHelper.goto(`chrome-extension://${new URL(ownWorker.url()).host}/src/options/index.html`);
+      const ownSite = async (): Promise<SiteScanState | null> => (await sendToBackground<SiteScanState | null>(ownHelper, { type: "SITE_SCAN_GET" })).data ?? null;
+      await sendToBackground(ownHelper, { type: "SITE_SCAN_DISCOVER", url: `${baseUrl}/site/home.html`, options: { ...DEFAULT_SITE_SCAN_OPTIONS, maxPages: 2, width: 768 } });
+      await expect.poll(async () => (await ownSite())?.phase, { timeout: 120_000 }).toBe("review");
+      expect((await ownSite())!.pages.filter((p) => p.include)).toHaveLength(2);
+      await sendToBackground(ownHelper, { type: "SITE_SCAN_START" });
+      await expect.poll(async () => (await ownSite())?.phase, { timeout: 120_000, intervals: [1000] }).toBe("done");
+      const done = (await ownSite())!;
+      const scanned = done.pages.map((p, index) => ({ p, index })).filter(({ p }) => p.status === "done");
+      expect(scanned).toHaveLength(2);
+      const results: ScanResult[] = [];
+      for (const { index } of scanned) results.push((await sendToBackground<ScanResult>(ownHelper, { type: "SITE_SCAN_RESULT", index })).data!);
+      expect(results.map((r) => r.viewport.width)).toEqual([768, 768]);
+      // Every page gives the parts it shares with the others.
+      expect(results[0].parts?.map((p) => p.key)).toEqual(["pageTitle", "header", "navigation:side:1"]);
+    } finally {
+      await own.context.close();
+      rmSync(own.userDataDir, { recursive: true, force: true });
+    }
+
+    // Two saved scans of different pages, ticked together, give one report that compares them.
+    const ids: string[] = [];
+    for (const name of ["home", "invoices"]) {
+      const url = `${baseUrl}/site/${name}.html`;
+      const page = await context.newPage();
+      await page.goto(url, { waitUntil: "load" });
+      const tabId = await findTabId(helper, url);
+      await sendToBackground(helper, { type: "SCAN_START", tabId, options: SCAN_OPTIONS });
+      ids.push((await sendToBackground<SavedScanMeta>(helper, { type: "SAVED_SCAN_SAVE", tabId, name })).data!.id);
+      await page.close();
+    }
+    const report = (await sendToBackground<{ filename: string; content: string }>(helper, { type: "SAVED_SCANS_EXPORT", ids, format: "html" })).data!;
+    expect(report.filename).toBe("127.0.0.1_UI_Consistency_Site_Report.html");
+    expect(report.content).toContain("Page title left edge differs between the two pages: 224px and 230px.");
+
+    // The same from the panel: tick both, Export.
+    const panel = await context.newPage();
+    await panel.goto(`chrome-extension://${extensionId}/src/sidepanel/index.html?tabId=0`);
+    await panel.getByRole("button", { name: "Saved Scans" }).first().click();
+    const saved = panel.getByTestId("saved-scans");
+    await saved.getByText("Select all").click();
+    await expect(saved).toContainText("2 of 2 selected");
+    const download = panel.waitForEvent("download");
+    await saved.getByRole("button", { name: "Export 2 selected scans" }).click();
+    await panel.getByRole("menuitem", { name: "HTML report" }).click();
+    expect((await download).suggestedFilename()).toBe("127.0.0.1_UI_Consistency_Site_Report.html");
+
+    for (const id of ids) await sendToBackground(helper, { type: "SAVED_SCAN_DELETE", id });
+    await panel.close();
   });
 
   test("a page that cannot be scripted gives a readable error", async () => {

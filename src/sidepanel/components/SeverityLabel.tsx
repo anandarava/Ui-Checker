@@ -6,8 +6,8 @@ import { isNeedsReviewIssue } from "@src/sidepanel/store";
  * Severity indicator: coloured dot + text, so meaning is never colour-only.
  * Findings for review are labelled as such, mirroring the score card and the overlay colours.
  */
-export function SeverityLabel({ issue, className = "" }: { issue: Finding; className?: string }) {
-  const review = isNeedsReviewIssue(issue);
+export function SeverityLabel({ issue, className = "" }: { issue: Pick<Finding, "severity" | "type">; className?: string }) {
+  const review = issue.type === "Review";
   const dotClass = review ? "sev-review" : `sev-${issue.severity}`;
   const text = review ? `Needs review (${issue.severity})` : issue.severity;
   return (

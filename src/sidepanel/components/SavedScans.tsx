@@ -166,6 +166,20 @@ export function SavedScans({ onBack }: { onBack(): void }) {
     } else showToast({ kind: "error", message: `Export failed: ${res.error ?? "unknown error"}`, autoDismiss: false });
   };
 
+  /** Export every ticked scan into one report (an overview, what differs across the pages, then each page), in list order. */
+  const exportSelected = async (format: ExportFormat) => {
+    const ids = (items ?? []).filter((m) => selected.includes(m.id)).map((m) => m.id);
+    if (ids.length === 0) return;
+    setBusy("exp:selected");
+    showToast({ kind: "info", message: `Building one ${format.toUpperCase()} report for ${ids.length} ${ids.length === 1 ? "page" : "pages"}…` });
+    const res = await sendToBackground<ReportFile>({ type: "SAVED_SCANS_EXPORT", ids, format });
+    setBusy(null);
+    if (res.ok && res.data) {
+      download(res.data);
+      showToast({ kind: "success", message: `Report exported: ${res.data.filename}` });
+    } else showToast({ kind: "error", message: `Export failed: ${res.error ?? "unknown error"}`, autoDismiss: false });
+  };
+
   const refreshActiveUrl = async () => {
     try {
       if (tabId === null) return setActiveUrl(null);
@@ -200,6 +214,7 @@ export function SavedScans({ onBack }: { onBack(): void }) {
   useEffect(() => {
     if (selectAllRef.current) selectAllRef.current.indeterminate = selected.length > 0 && !allSelected;
   }, [selected.length, allSelected]);
+  const exporting = busy === "exp:selected";
 
   return (
     <section ref={rootRef} aria-labelledby={`${id}-h`} className="flex min-h-0 flex-1 flex-col overflow-y-auto" data-testid="saved-scans">
@@ -317,7 +332,7 @@ export function SavedScans({ onBack }: { onBack(): void }) {
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
                 <div className="flex min-w-0 flex-1 basis-56 items-start gap-3">
                   <label className="flex h-11 shrink-0 cursor-pointer items-center">
-                    <input type="checkbox" className="peer sr-only" checked={checked} onChange={() => toggle(meta.id)} aria-label={`Select "${meta.name}" to compare`} />
+                    <input type="checkbox" className="peer sr-only" checked={checked} onChange={() => toggle(meta.id)} aria-label={`Select "${meta.name}" to compare or export`} />
                     <span
                       aria-hidden="true"
                       className={`flex h-4 w-4 items-center justify-center rounded border text-white peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-700 ${
@@ -433,6 +448,29 @@ export function SavedScans({ onBack }: { onBack(): void }) {
         </EmptyState>
       )}
 
+      {Boolean(items?.length) && (
+        <div className="sticky bottom-0 mt-auto flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-3 py-2 shadow-[0_-2px_6px_rgba(15,23,42,0.06)]">
+          <RowMenu
+            above
+            ariaLabel={
+              selected.length === 0 ? "Export selected scans (tick one or more scans first)" : `Export ${selected.length} selected ${selected.length === 1 ? "scan" : "scans"}`
+            }
+            disabled={selected.length === 0 || exporting}
+            triggerClassName="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-blue-700 px-3 text-xs font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+            trigger={
+              <>
+                <DownloadIcon size={14} />
+                {exporting ? "Exporting…" : `Export${selected.length > 0 ? ` (${selected.length})` : ""}`}
+                <ChevronDownIcon size={14} />
+              </>
+            }
+            items={[
+              { key: "html", label: "HTML report", icon: <DownloadIcon />, onSelect: () => void exportSelected("html") },
+              { key: "json", label: "JSON file", icon: <DownloadIcon />, onSelect: () => void exportSelected("json") },
+            ]}
+          />
+        </div>
+      )}
     </section>
   );
 }

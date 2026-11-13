@@ -8,6 +8,7 @@ import { ScanButton, ScanProgressBar, useStartScan } from "./components/ScanButt
 import { SavedScans } from "./components/SavedScans";
 import { SaveScanButton } from "./components/SaveScanButton";
 import { CompareView } from "./components/CompareView";
+import { SiteScan } from "./components/SiteScan";
 import { PageChangedBanner } from "./components/PageChangedBanner";
 import { LandingView } from "./components/LandingView";
 import { ScopeControl } from "./components/ScopeControl";
@@ -21,22 +22,38 @@ import { ExportMenu } from "./components/ExportMenu";
 import { OverlayMenu, useOverlaySync } from "./components/OverlayMenu";
 import { SelectMenu, TOLERANCE_PRESET_OPTIONS } from "./components/SelectMenu";
 import { Toast } from "./components/Toast";
-import { BookmarkIcon, ResetIcon, SettingsIcon } from "./components/icons";
+import { BookmarkIcon, GlobeIcon, ResetIcon, SettingsIcon } from "./components/icons";
 
 /** Shown while a saved scan is on screen instead of the live result of the tab. */
 function SavedBanner() {
   const saved = useStore((s) => s.viewingSaved);
   const exitSaved = useStore((s) => s.exitSaved);
+  const setView = useStore((s) => s.setView);
   if (!saved) return null;
+  // A page opened from the Site scan list (its id is "<site scan id>:<page index>").
+  const fromSiteScan = saved.id.startsWith("site_");
   return (
     <div role="status" className="flex items-center gap-2 border-b border-indigo-700 bg-indigo-50 px-3 py-2 text-sm text-indigo-950">
       <div className="min-w-0 flex-1">
-        <strong>Viewing saved scan:</strong> <span className="truncate">{saved.name}</span>
+        <strong>{fromSiteScan ? "Viewing:" : "Viewing saved scan:"}</strong> <span className="truncate">{saved.name}</span>
         <span className="block text-xs">{new Date(saved.scannedAt).toLocaleString()} · read-only</span>
       </div>
-      <Button size="sm" variant="primary" onClick={exitSaved}>
-        Back to live results
-      </Button>
+      {fromSiteScan ? (
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={() => {
+            exitSaved();
+            setView("site");
+          }}
+        >
+          Back to site scan
+        </Button>
+      ) : (
+        <Button size="sm" variant="primary" onClick={exitSaved}>
+          Back to live results
+        </Button>
+      )}
     </div>
   );
 }
@@ -70,7 +87,7 @@ export function App({ tabIdOverride, getInspectedSelector }: AppProps) {
   const selectIssue = useStore((s) => s.selectIssue);
   const startScan = useStartScan();
   // Saved scans can be opened before the page has been scanned.
-  const landing = !result && view !== "saved" && view !== "compare";
+  const landing = !result && view !== "saved" && view !== "compare" && view !== "site";
 
   const reset = useCallback(async () => {
     const store = useStore.getState();
@@ -126,6 +143,9 @@ export function App({ tabIdOverride, getInspectedSelector }: AppProps) {
           <Button onClick={() => setView("saved")} aria-pressed={view === "saved" || view === "compare"} size="action" className="flex-1 basis-[5.5rem] whitespace-normal leading-tight">
             <BookmarkIcon /> Saved Scans
           </Button>
+          <Button onClick={() => setView("site")} aria-pressed={view === "site"} size="action" className="flex-1 basis-[5.5rem] whitespace-normal leading-tight">
+            <GlobeIcon /> Site Scan
+          </Button>
           <Button onClick={() => void reset()} disabled={scanning} size="action" className="flex-1 basis-[5.5rem] whitespace-normal leading-tight">
             <ResetIcon /> Reset
           </Button>
@@ -145,11 +165,15 @@ export function App({ tabIdOverride, getInspectedSelector }: AppProps) {
           <p className="px-3 pb-3 text-center">
             <Button size="sm" onClick={() => setView("saved")}>
               <BookmarkIcon /> Saved Scans
+            </Button>{" "}
+            <Button size="sm" onClick={() => setView("site")}>
+              <GlobeIcon /> Site Scan
             </Button>
           </p>
         )}
         {view === "saved" && <SavedScans onBack={backToList} />}
         {view === "compare" && <CompareView onBack={() => setView("saved")} />}
+        {view === "site" && <SiteScan onBack={backToList} />}
         {!landing && view === "list" && (
           <>
             <ResizableSummary>

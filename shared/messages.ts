@@ -10,6 +10,7 @@
  * Every message carries `type` and, where relevant, `tabId` so the side panel
  * (one per window) can ignore events from other tabs.
  */
+import type { SiteScanOptions, SiteScanState } from "./site-crawl";
 import type { ExportFormat, FindingStatus, PageChangeReason, ScaleKind, ScanOptions, ScanResult } from "./types";
 
 export type Message =
@@ -58,6 +59,26 @@ export type Message =
   | { type: "SAVED_SCAN_DELETE"; id: string }
   /** Build a report of a saved scan. Answers with the file; the panel saves it. */
   | { type: "SAVED_SCAN_EXPORT"; id: string; format: ExportFormat }
+  /** Build one report for several saved scans (an overview, what differs across them, then each page). Answers with the file. */
+  | { type: "SAVED_SCANS_EXPORT"; ids: string[]; format: ExportFormat }
+  // ---- Site scan (one at a time; the SW owns the state and broadcasts SITE_SCAN_STATE on every change) ----
+  | { type: "SITE_SCAN_GET" }
+  /** Find the pages of the site that `url` belongs to; ends in the "review" phase. */
+  | { type: "SITE_SCAN_DISCOVER"; url: string; options: SiteScanOptions }
+  /** Tick / untick listed pages and add addresses by hand (review phase, or between runs). */
+  | { type: "SITE_SCAN_SET_PAGES"; include?: Record<string, boolean>; add?: string[] }
+  /** Scan the ticked pages that are still pending (also resumes a paused run). */
+  | { type: "SITE_SCAN_START" }
+  /** Scan pages already scanned (or failed) again: the given indexes, or all of them. */
+  | { type: "SITE_SCAN_RESCAN"; indexes?: number[] }
+  | { type: "SITE_SCAN_PAUSE" }
+  | { type: "SITE_SCAN_STOP" }
+  /** The full result of one scanned page (index into `pages`). */
+  | { type: "SITE_SCAN_RESULT"; index: number }
+  /** One report for every scanned page. Answers with the file; the panel saves it. */
+  | { type: "SITE_SCAN_EXPORT"; format: ExportFormat }
+  | { type: "SITE_SCAN_CLEAR" }
+  | { type: "SITE_SCAN_STATE"; state: SiteScanState | null }
   // ---- State queries ----
   | { type: "GET_LAST_RESULT"; tabId: number }
   | { type: "RESET_RESULT"; tabId: number }

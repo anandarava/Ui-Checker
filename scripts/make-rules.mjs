@@ -45,6 +45,7 @@ const TABLE = [
   ["TXT-02", "Shortened text cannot be read in full", "content", "5", "Medium", null, "Text is shortened with an ellipsis and nothing on the element (a title or a label) holds the full text.", "Offer the full text in a title or tooltip, or give the text room."],
   ["TXT-03", "Text shortened in different ways", "content", "5", "Medium", null, "Peer elements shorten their text in different ways: the ellipsis is typed into the text in some and added by the browser in others, or it is written differently.", "Shorten every text the same way: let the browser add the ellipsis and keep the full text in the page."],
   ["FMT-01", "Value format differs", "content", "5", "Medium", null, "Values of one column or list field follow different patterns: date formats, number formats or capitalisation.", "Write every value of the column or field in the same format."],
+  ["IMG-01", "Image does not load", "content", "6", "High", null, "An image, or the background image of an element, failed to load, so the page shows a gap or a broken-image icon.", "Fix the address of the image, or remove the image."],
 ];
 
 const rules = TABLE.map(([id, name, category, phase, severity, tolerance, description, fix]) => ({

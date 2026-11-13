@@ -21,6 +21,6 @@
       "@src/*": ["src/*"]
     }
   },
-  "include": ["shared", "src", "tests", "vite.config.ts", "vite-env.d.ts"],
+  "include": ["shared", "src", "tests", "ci", "vite.config.ts", "vite-env.d.ts"],
   "exclude": ["node_modules", "dist", "fixtures"]
 }

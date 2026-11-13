@@ -49,7 +49,7 @@ function describe(f: FoundFinding): string {
 test.describe("rules", () => {
   test("every rule of the catalogue is built", () => {
     expect(BUILT.size).toBe(catalogue.rules.length);
-    expect(BUILT.size).toBe(27);
+    expect(BUILT.size).toBe(28);
   });
 
   for (const name of FIXTURES) {

@@ -10,8 +10,8 @@ export type Severity = "High" | "Medium" | "Low";
 /** Result tabs: Typography / Layout & spacing / Group structure / Box style / Text & content. */
 export type RuleCategory = "typography" | "layout" | "group" | "box" | "content";
 
-/** "3A" core rules are built first, "3B" is the second wave (PLAN.md, Phase 3); "5" came with the page-wide audit. */
-export type RulePhase = "3A" | "3B" | "5";
+/** "3A" core rules are built first, "3B" is the second wave (PLAN.md, Phase 3); "5" came with the page-wide audit, "6" with the broken-image check. */
+export type RulePhase = "3A" | "3B" | "5" | "6";
 
 export type ToleranceUnit = "px" | "ratio" | "deltaE" | "exact";
 

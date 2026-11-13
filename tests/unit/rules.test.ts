@@ -5,7 +5,7 @@ describe("rule catalogue", () => {
   it("has unique, well-formed ids", () => {
     const ids = RULES.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const id of ids) expect(id).toMatch(/^(TYP|LAY|GRP|BOX|TXT|FMT)-\d{2}$/);
+    for (const id of ids) expect(id).toMatch(/^(TYP|LAY|GRP|BOX|TXT|FMT|IMG)-\d{2}$/);
   });
 
   it("gives every rule a name, a description, a fix and a known category", () => {
@@ -19,7 +19,7 @@ describe("rule catalogue", () => {
   });
 
   it("puts the id prefix and the category in step", () => {
-    const prefix = { typography: ["TYP"], layout: ["LAY"], group: ["GRP"], box: ["BOX"], content: ["TXT", "FMT"] } as const;
+    const prefix = { typography: ["TYP"], layout: ["LAY"], group: ["GRP"], box: ["BOX"], content: ["TXT", "FMT", "IMG"] } as const;
     for (const rule of RULES) expect(prefix[rule.category].some((p) => rule.id.startsWith(p)), rule.id).toBe(true);
   });
 

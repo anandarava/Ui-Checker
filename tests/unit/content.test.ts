@@ -402,3 +402,41 @@ describe("design tokens", () => {
     expect(() => parseTokens(JSON.stringify({ radius: { card: { $value: "12px", $type: "dimension" } } }), "x.json")).toThrow("No font, spacing or colour tokens");
   });
 });
+
+describe("IMG-01: images that do not load", () => {
+  /** data-img="broken | ok | loading" says what the browser made of an image. */
+  function stubImages(): void {
+    vi.spyOn(HTMLImageElement.prototype, "complete", "get").mockImplementation(function (this: HTMLImageElement) {
+      return this.getAttribute("data-img") !== "loading";
+    });
+    for (const side of ["naturalWidth", "naturalHeight"] as const) {
+      vi.spyOn(HTMLImageElement.prototype, side, "get").mockImplementation(function (this: HTMLImageElement) {
+        return this.getAttribute("data-img") === "ok" ? 40 : 0;
+      });
+    }
+  }
+
+  it("reports an image the browser could not load, and not one that is still loading", () => {
+    stubImages();
+    const found = scan(
+      `<img id="a" src="https://x.test/a.png" data-img="broken"><img id="b" src="https://x.test/b.png" data-img="ok">
+       <img id="c" src="https://x.test/c.png" data-img="loading"><img id="d" src="https://x.test/d.svg" data-img="broken"><img id="e" data-img="broken">`,
+      ["IMG-01"],
+    );
+    expect(found.keys).toEqual(["IMG-01 a Definite"]);
+    expect(found.findings[0]).toMatchObject({ severity: "High", group: -1, message: "This image does not load: https://x.test/a.png" });
+  });
+
+  it("reports a background image the server answered with an error for", () => {
+    const entries = [{ name: "https://x.test/missing.png", responseStatus: 404 }, { name: "https://x.test/fine.png", responseStatus: 200 }];
+    const original = performance.getEntriesByType;
+    performance.getEntriesByType = (() => entries) as unknown as typeof performance.getEntriesByType;
+    try {
+      const found = scan(`<div id="a" style='background-image:url("https://x.test/missing.png")'>x</div><div id="b" style='background-image:url("https://x.test/fine.png")'>y</div>`, ["IMG-01"]);
+      expect(found.keys).toEqual(["IMG-01 a Definite"]);
+      expect(found.findings[0].message).toBe("The background image of this element does not load: https://x.test/missing.png");
+    } finally {
+      performance.getEntriesByType = original;
+    }
+  });
+});

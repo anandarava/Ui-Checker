@@ -10,7 +10,7 @@
  * Every message carries `type` and, where relevant, `tabId` so the side panel
  * (one per window) can ignore events from other tabs.
  */
-import type { FindingStatus, ScanOptions, ScanResult } from "./types";
+import type { ExportFormat, FindingStatus, ScanOptions, ScanResult } from "./types";
 
 export type Message =
   // ---- Scanning ----
@@ -30,6 +30,10 @@ export type Message =
   | { type: "CS_FOCUS_FINDING"; tabId: number; findingId: string | null; peers: boolean }
   /** CS -> UI: a badge on the page was clicked. */
   | { type: "FINDING_CLICKED"; tabId: number; findingId: string }
+  /** UI -> SW: build a report of the last scan. Answers with the file (name, type, content); the panel saves it. */
+  | { type: "EXPORT_REPORT"; tabId: number; format: ExportFormat; screenshots?: boolean }
+  /** SW -> CS: scroll to a finding and draw it for a screenshot. Answers with what to cut out of the capture. */
+  | { type: "CS_PREPARE_SHOT"; tabId: number; findingId: string }
   /** UI -> SW: ignore, baseline, mark intentional or reopen findings. Answers with the updated ScanResult. */
   | { type: "SET_STATUS"; tabId: number; fingerprints: string[]; status: FindingStatus; reason?: string }
   /** Forget the scan result and remove everything the extension drew on the page (panel "Reset"). */

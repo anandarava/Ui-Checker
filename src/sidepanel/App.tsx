@@ -12,6 +12,7 @@ import { ResultTabs } from "./components/ResultTabs";
 import { Filters } from "./components/Filters";
 import { IssueList } from "./components/IssueList";
 import { IssueDetail } from "./components/IssueDetail";
+import { ExportMenu } from "./components/ExportMenu";
 import { OverlayMenu, useOverlaySync } from "./components/OverlayMenu";
 import { SelectMenu, TOLERANCE_PRESET_OPTIONS } from "./components/SelectMenu";
 import { Toast } from "./components/Toast";
@@ -118,6 +119,14 @@ export function App({ tabIdOverride }: AppProps) {
         )}
         {!landing && view === "detail" && selectedIssueId && <IssueDetail issueId={selectedIssueId} onBack={backToList} />}
       </main>
+
+      {/* The issue view has its own action bar; the export bar returns with the list. */}
+      {!landing && view === "list" && (
+        <footer className="sticky bottom-0 flex shrink-0 flex-wrap items-center gap-1.5 border-t border-slate-200 bg-white px-3 py-2">
+          <span className="flex-1" />
+          <ExportMenu />
+        </footer>
+      )}
 
       <Toast />
     </div>

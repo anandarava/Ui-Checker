@@ -356,6 +356,77 @@ test.describe("extension", () => {
     await page.close();
   });
 
+  test("exports an HTML and a JSON report, with screenshots of the issues", async () => {
+    const url = `${baseUrl}/dashboard-defects.html`;
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: "load" });
+    const tabId = await findTabId(helper, url);
+    const scan = await sendToBackground<ScanResult>(helper, { type: "SCAN_START", tabId, options: SCAN_OPTIONS });
+    expect(scan.ok, scan.error).toBe(true);
+    const result = scan.data as ScanResult;
+    interface ReportFile {
+      filename: string;
+      mime: string;
+      content: string;
+      captured: number;
+      skipped: number;
+    }
+
+    const html = (await sendToBackground<ReportFile>(helper, { type: "EXPORT_REPORT", tabId, format: "html" })).data as ReportFile;
+    expect(html.filename).toBe("127.0.0.1_UI_Consistency_Report.html");
+    expect(html.content).toContain("<title>UI consistency report: Dashboard fixture (defects)</title>");
+    expect(html.content).toContain("Content inset differs between sections");
+    expect(html.content).toContain("Needs review");
+    expect(html.content).not.toContain("<figure");
+
+    const json = (await sendToBackground<ReportFile>(helper, { type: "EXPORT_REPORT", tabId, format: "json" })).data as ReportFile;
+    const doc = JSON.parse(json.content) as ScanResult & { tool: { name: string } };
+    expect(doc.tool.name).toBe("PalTech UI Consistency Checker");
+    expect(doc.scanId).toBe(result.scanId);
+    expect(doc.findings).toHaveLength(result.findings.length);
+
+    // Screenshots need the page to be the visible tab.
+    await page.bringToFront();
+    const shots = (await sendToBackground<ReportFile>(helper, { type: "EXPORT_REPORT", tabId, format: "html", screenshots: true })).data as ReportFile;
+    const open = result.findings.filter((f) => f.status === "new").length;
+    expect(shots.captured + shots.skipped).toBe(open);
+    expect(shots.captured).toBeGreaterThan(0);
+    expect((shots.content.match(/<figure class="shot">/g) ?? []).length).toBe(shots.captured);
+    // What was drawn for the pictures is removed again.
+    await expect(page.locator("#ui-consistency-checker-overlay")).toHaveCount(0);
+
+    // The report opens as a page of its own, with nothing blocked or missing.
+    if (process.env.UICHECK_E2E_SHOTS) {
+      const { writeFileSync } = await import("node:fs");
+      const file = path.join(process.env.UICHECK_E2E_SHOTS, "report.html");
+      writeFileSync(file, shots.content);
+      const report = await context.newPage();
+      await report.goto(`file:///${file.replace(/\\/g, "/")}`);
+      await report.setViewportSize({ width: 1200, height: 900 });
+      await report.screenshot({ path: path.join(process.env.UICHECK_E2E_SHOTS, "report-summary.png") });
+      await report.locator("#rule-lay-06").scrollIntoViewIfNeeded();
+      await report.screenshot({ path: path.join(process.env.UICHECK_E2E_SHOTS, "report-details.png") });
+      await report.close();
+    }
+    await page.close();
+  });
+
+  test("the side panel has an Export menu", async () => {
+    const url = `${baseUrl}/grid-plain-defects.html`;
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: "load" });
+    const tabId = await findTabId(helper, url);
+    const panel = await context.newPage();
+    await panel.goto(`chrome-extension://${extensionId}/src/sidepanel/index.html?tabId=${tabId}`);
+    await panel.getByRole("button", { name: "Start scan" }).click();
+    await panel.getByRole("button", { name: "Export report" }).click();
+    const download = panel.waitForEvent("download");
+    await panel.getByRole("button", { name: /^JSON/ }).click();
+    expect((await download).suggestedFilename()).toBe("127.0.0.1_UI_Consistency_Report.json");
+    await panel.close();
+    await page.close();
+  });
+
   test("a page that cannot be scripted gives a readable error", async () => {
     // An extension cannot read the address of a chrome:// tab, so find it as "the tab that was not there before".
     const tabIds = () => helper.evaluate(async () => (await chrome.tabs.query({})).map((t) => t.id ?? -1));

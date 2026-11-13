@@ -134,7 +134,17 @@ export interface Finding {
   reason?: string;
   /** What was measured, for the redline overlay and the report screenshots. */
   marks?: Mark[];
+  /** Screenshot taken for a report. */
+  evidence?: Evidence;
 }
+
+export interface Evidence {
+  /** PNG data URL of the element, cropped, with the measurement drawn on it. */
+  screenshot?: string;
+  capturedAt?: string;
+}
+
+export type ExportFormat = "html" | "json";
 
 export type RuleOutcome = "passed" | "failed" | "notApplicable" | "notImplemented" | "disabled";
 
@@ -204,6 +214,10 @@ export interface ScanResult {
 }
 
 export interface Settings {
+  /** Name shown as "Prepared by" on HTML reports. */
+  reportPreparedBy: string;
+  /** Organisation (client or company) shown on HTML reports. */
+  reportOrganisation: string;
   tolerancePreset: TolerancePreset;
   /** Rule ids switched off by the user. */
   disabledRules: string[];
@@ -212,6 +226,8 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  reportPreparedBy: "",
+  reportOrganisation: "",
   tolerancePreset: "normal",
   disabledRules: [],
   minGroupSize: 2,

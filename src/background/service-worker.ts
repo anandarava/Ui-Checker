@@ -7,6 +7,8 @@ import { isMessage, isScanResult, sendToTab, type Message, type Response } from 
 import { STORAGE_RESULT_PREFIX, STORAGE_SETTINGS, STORAGE_STATUS_PREFIX } from "@shared/constants";
 import { withFindings } from "@shared/scoring";
 import { DEFAULT_SETTINGS, type FindingStatus, type ScanResult, type Settings, type StoredStatus } from "@shared/types";
+import { captureEvidence } from "./evidence";
+import { buildReport } from "./exporters";
 import { ensureContentScript } from "./injector";
 
 const resultKey = (tabId: number) => `${STORAGE_RESULT_PREFIX}${tabId}`;
@@ -147,6 +149,27 @@ async function startScan(msg: Extract<Message, { type: "SCAN_START" }>): Promise
 }
 
 // ---------------------------------------------------------------------------
+// Reports
+// ---------------------------------------------------------------------------
+
+async function exportReport(msg: Extract<Message, { type: "EXPORT_REPORT" }>): Promise<Response> {
+  const stored = await loadResult(msg.tabId);
+  if (!stored) return { ok: false, error: "There is no scan result for this tab. Scan the page first." };
+  const settings = await getSettings();
+  let result = stored;
+  let captured = 0;
+  let skipped = 0;
+  if (msg.screenshots && msg.format === "html") {
+    const evidence = await captureEvidence(msg.tabId, stored, (done, total) => {
+      broadcast({ type: "SCAN_PROGRESS", tabId: msg.tabId, percent: total === 0 ? 100 : Math.round((100 * done) / total), stage: `Capturing screenshot ${Math.min(done + 1, total)} of ${total}` });
+    });
+    ({ result, captured, skipped } = evidence);
+  }
+  const file = buildReport(msg.format, result, { preparedBy: settings.reportPreparedBy, organisation: settings.reportOrganisation });
+  return { ok: true, data: { ...file, captured, skipped } };
+}
+
+// ---------------------------------------------------------------------------
 // Message routing
 // ---------------------------------------------------------------------------
 
@@ -162,6 +185,8 @@ async function handle(msg: Message): Promise<Response> {
       return { ok: true };
     case "SET_STATUS":
       return setStatus(msg.tabId, msg.fingerprints, msg.status, msg.reason);
+    case "EXPORT_REPORT":
+      return exportReport(msg);
     case "GET_SETTINGS":
       return { ok: true, data: await getSettings() };
     default:
@@ -171,7 +196,7 @@ async function handle(msg: Message): Promise<Response> {
 }
 
 /** Messages the service worker answers. Everything else is a broadcast meant for the UI. */
-const REQUESTS = new Set<Message["type"]>(["SCAN_START", "GET_LAST_RESULT", "RESET_RESULT", "GET_SETTINGS", "SET_STATUS"]);
+const REQUESTS = new Set<Message["type"]>(["SCAN_START", "GET_LAST_RESULT", "RESET_RESULT", "GET_SETTINGS", "SET_STATUS", "EXPORT_REPORT"]);
 
 chrome.runtime.onMessage.addListener((raw: unknown, _sender, sendResponse: (r: Response) => void) => {
   if (!isMessage(raw) || !REQUESTS.has(raw.type)) return false;

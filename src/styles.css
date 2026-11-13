@@ -67,6 +67,11 @@ select:focus-visible {
 .sev-Moderate { background: var(--sev-moderate); }
 .sev-Minor { background: var(--sev-minor); }
 .sev-bp { background: var(--sev-bp); }
+/* UI consistency severities use the same tokens: High = serious, Medium = moderate, Low = minor. */
+.sev-High { background: var(--sev-serious); }
+.sev-Medium { background: var(--sev-moderate); }
+.sev-Low { background: var(--sev-minor); }
+.sev-review { background: #0b7285; }
 
 .sr-only {
   position: absolute;

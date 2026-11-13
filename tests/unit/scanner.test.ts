@@ -52,6 +52,8 @@ describe("runScan", () => {
     expect(result.groups[0].members.map((m) => m.text)).toEqual(["a", "b"]);
     expect(result.groups[0].members[0].selector).toBe("p:nth-of-type(1)");
     expect(result.warnings).toEqual([]);
+    expect(result.score).toBe(100);
+    expect(result.summary).toEqual({ high: 0, medium: 0, low: 0, review: 0, excluded: 0 });
     expect(result.timings.snapshotMs).toBeGreaterThanOrEqual(0);
     expect(result.rules.map((r) => r.id)).toEqual(RULES.map((r) => r.id));
     expect(stages.at(-1)).toBe(100);

@@ -99,6 +99,14 @@ export type FindingStatus = "new" | "ignored" | "baselined" | "intentional";
  */
 export type FindingKind = "outlier" | "pair" | "noMajority";
 
+/** A stretch that a rule measured, drawn on the page as a redline. */
+export interface Mark {
+  /** Page coordinates (CSS px) of the top document. */
+  box: Box;
+  /** The size that was measured, e.g. "29px". */
+  label?: string;
+}
+
 export interface Finding {
   id: string;
   /** Stable across scans of the same page: baselines and scan comparison key on it. */
@@ -122,6 +130,10 @@ export interface Finding {
   message: string;
   /** Findings on descendants that this finding explains (same offset) and that were folded into it. */
   foldedCount?: number;
+  /** Why the tester ignored it, baselined it or marked it intentional. */
+  reason?: string;
+  /** What was measured, for the redline overlay and the report screenshots. */
+  marks?: Mark[];
 }
 
 export type RuleOutcome = "passed" | "failed" | "notApplicable" | "notImplemented" | "disabled";
@@ -131,6 +143,27 @@ export interface RuleResult {
   outcome: RuleOutcome;
   /** Number of peer groups the rule looked at. */
   groupsChecked: number;
+}
+
+/** Counts of the findings of a scan. Only open findings are counted by severity. */
+export interface ScanSummary {
+  high: number;
+  medium: number;
+  low: number;
+  /** Open findings listed for review; not counted as issues. */
+  review: number;
+  /** Ignored, baselined or marked intentional. */
+  excluded: number;
+}
+
+/** A finding the tester excluded, remembered for the site so later scans keep the decision. */
+export interface StoredStatus {
+  fingerprint: string;
+  ruleId: string;
+  selector: string;
+  status: Exclude<FindingStatus, "new">;
+  reason: string;
+  createdAt: string;
 }
 
 export interface ScanOptions {
@@ -154,6 +187,9 @@ export interface ScanResult {
   /** Parts of `durationMs`: waiting for the page to be ready, reading it, finding the peer groups and running the rules. */
   timings: { waitMs: number; snapshotMs: number; groupingMs: number; rulesMs: number };
   engineVersion: string;
+  /** Consistency score, 0 to 100 (shared/scoring.ts). */
+  score: number;
+  summary: ScanSummary;
   options: ScanOptions;
   viewport: { width: number; height: number; devicePixelRatio: number };
   /** Visible elements measured. */

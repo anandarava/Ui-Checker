@@ -11,6 +11,7 @@
  * Everything is measured from the boxes of the snapshot and judged against the
  * page's own peers, never against fixed values.
  */
+import type { Mark } from "@shared/types";
 import type { ElementSnapshot } from "../snapshot";
 import type { RuleContext } from "./index";
 import { bucketNumbers, judge, median, px, valueCounts, type Entry, type Verdict } from "./compare";
@@ -130,6 +131,14 @@ export function runLayoutRules(ctx: RuleContext): void {
         }
       }
 
+      /** The strip between one edge of a container and its content. */
+      const strip = (el: number, side: Side, size: number): Mark => {
+        const b = elements[el].box;
+        const box =
+          side === "top" ? { x: b.x, y: b.y, width: b.width, height: size } : side === "bottom" ? { x: b.x, y: b.y + b.height - size, width: b.width, height: size } : side === "left" ? { x: b.x, y: b.y, width: size, height: b.height } : { x: b.x + b.width - size, y: b.y, width: size, height: b.height };
+        return { box, label: px(size) };
+      };
+
       for (const [el, all] of odd) {
         const own = insetsOf(el)!;
         // Sides with a clear majority say more than sides where only two members could be compared.
@@ -159,6 +168,7 @@ export function runLayoutRules(ctx: RuleContext): void {
             actual,
             values: s.verdict.kind === "same" ? [] : valueCounts(s.verdict.buckets),
             message: `The ${pair} padding is uneven (${actual}), while the peers of this container are padded evenly.`,
+            marks: [strip(el, s.side, s.actual), strip(el, OPPOSITE[s.side], other)],
           });
         }
         if (plain.length > 0 && ctx.runs("LAY-01")) {
@@ -176,6 +186,7 @@ export function runLayoutRules(ctx: RuleContext): void {
             actual,
             values: first.verdict.kind === "same" ? [] : valueCounts(first.verdict.buckets),
             message: expected ? `The space between the edge and the content is ${actual}; its peers have ${expected}.` : `The space between the edge and the content differs between these two containers: ${actual} here.`,
+            marks: plain.map((s) => strip(el, s.side, s.actual)),
           });
         }
       }
@@ -397,6 +408,12 @@ export function runLayoutRules(ctx: RuleContext): void {
             { value: px(b.inset), count: 1 },
           ],
           message: `This block starts ${px(b.inset)} from the edge of its section; the other content of these sections starts at ${px(b.base)}.`,
+          marks: [
+            {
+              box: { x: Math.min(elements[b.el].box.x, elements[b.section].box.x + (rtl(b.section) ? elements[b.section].box.width - b.inset : 0)), y: elements[b.el].box.y, width: b.inset, height: elements[b.el].box.height },
+              label: px(b.inset),
+            },
+          ],
         });
       }
     }
@@ -405,6 +422,15 @@ export function runLayoutRules(ctx: RuleContext): void {
   // ---------------------------------------------------------------------------
   // LAY-04: edges
   // ---------------------------------------------------------------------------
+
+  /** The stretch between where an edge is and where its peers have it. */
+  const offsetMark = (el: number, property: string, usual: number, actual: number): Mark => {
+    const b = elements[el].box;
+    const size = Math.abs(actual - usual);
+    const from = Math.min(actual, usual);
+    const vertical = property === "top edge" || property === "bottom edge" || property === "vertical centre";
+    return { box: vertical ? { x: b.x, y: from, width: b.width, height: size } : { x: from, y: b.y, width: size, height: b.height }, label: px(size) };
+  };
 
   /** Peers that share a row should start at the same height; peers stacked in a column should start at the same side. */
   const peerEdgeRule = (): void => {
@@ -467,13 +493,13 @@ export function runLayoutRules(ctx: RuleContext): void {
           // A whole step away (an indented sub-item, an item on another row) is placed there on purpose.
           if (Math.abs(o.value - usual) >= NEAR_MISS) continue;
           const text = describe(o.value - usual);
-          ctx.report({ ruleId: "LAY-04", element: o.el, group: g, kind: "outlier", severity, property, expected: "in line with its peers", actual: `${text} its peers`, values, message: `The ${property} of this element is ${text} its ${verdict.expected.entries.length} peers.` });
+          ctx.report({ ruleId: "LAY-04", element: o.el, group: g, kind: "outlier", severity, property, expected: "in line with its peers", actual: `${text} its peers`, values, message: `The ${property} of this element is ${text} its ${verdict.expected.entries.length} peers.`, marks: [offsetMark(o.el, property, usual, o.value)] });
         }
       } else {
         const [a, b] = entries.slice().sort((x, y) => x.el - y.el);
         if (Math.abs(b.value - a.value) >= NEAR_MISS) continue;
         const text = describe(b.value - a.value);
-        ctx.report({ ruleId: "LAY-04", element: b.el, group: g, kind: "pair", severity, property, expected: null, actual: `${text} its peer`, values, message: `The ${property} of this element is ${text} its peer.` });
+        ctx.report({ ruleId: "LAY-04", element: b.el, group: g, kind: "pair", severity, property, expected: null, actual: `${text} its peer`, values, message: `The ${property} of this element is ${text} its peer.`, marks: [offsetMark(b.el, property, a.value, b.value)] });
       }
     }
   };
@@ -625,6 +651,7 @@ export function runLayoutRules(ctx: RuleContext): void {
           { value: px(c.edge), count: 1 },
         ],
         message: `The ${c.side} edge of this element is ${where} the edge that ${best.count} nearby elements share.`,
+        marks: [{ box: { x: Math.min(c.edge, best.edge), y: elements[c.el].box.y, width: Math.abs(delta), height: elements[c.el].box.height }, label: px(Math.abs(delta)) }],
       });
     }
     ctx.looked("LAY-04");

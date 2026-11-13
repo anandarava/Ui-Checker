@@ -66,6 +66,16 @@ export function useBackgroundEvents(): void {
         case "SETTINGS_CHANGED":
           void refreshSettings();
           break;
+        case "FINDING_CLICKED": {
+          // A badge on the page was clicked: open that finding.
+          if (raw.tabId !== store.tabId) break;
+          const finding = store.result?.findings.find((f) => f.id === raw.findingId);
+          if (!finding) break;
+          store.expandRule(finding.ruleId);
+          store.selectIssue(finding.id);
+          store.setView("detail");
+          break;
+        }
         default:
           break;
       }

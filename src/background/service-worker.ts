@@ -4,8 +4,9 @@
  * settings (chrome.storage.sync).
  */
 import { isMessage, isScanResult, sendToTab, type Message, type Response } from "@shared/messages";
-import { STORAGE_RESULT_PREFIX, STORAGE_SETTINGS } from "@shared/constants";
-import { DEFAULT_SETTINGS, type ScanResult, type Settings } from "@shared/types";
+import { STORAGE_RESULT_PREFIX, STORAGE_SETTINGS, STORAGE_STATUS_PREFIX } from "@shared/constants";
+import { withFindings } from "@shared/scoring";
+import { DEFAULT_SETTINGS, type FindingStatus, type ScanResult, type Settings, type StoredStatus } from "@shared/types";
 import { ensureContentScript } from "./injector";
 
 const resultKey = (tabId: number) => `${STORAGE_RESULT_PREFIX}${tabId}`;
@@ -50,6 +51,61 @@ async function clearResult(tabId: number): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Statuses: ignored, baselined, intentional. Kept per site, keyed by fingerprint,
+// so the next scan of the same page keeps the tester's decisions.
+// ---------------------------------------------------------------------------
+
+function originOf(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url;
+  }
+}
+
+const statusKey = (url: string) => `${STORAGE_STATUS_PREFIX}${originOf(url)}`;
+
+async function loadStatuses(url: string): Promise<Record<string, StoredStatus>> {
+  try {
+    return ((await chrome.storage.local.get(statusKey(url)))[statusKey(url)] as Record<string, StoredStatus> | undefined) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** Applies the stored decisions to a fresh result and recomputes its score and counts. */
+async function applyStatuses(result: ScanResult): Promise<ScanResult> {
+  const stored = await loadStatuses(result.url);
+  const findings = result.findings.map((f) => {
+    const entry = stored[f.fingerprint];
+    return entry ? { ...f, status: entry.status, reason: entry.reason } : f;
+  });
+  return withFindings(result, findings);
+}
+
+async function setStatus(tabId: number, fingerprints: string[], status: FindingStatus, reason = ""): Promise<Response<ScanResult>> {
+  const result = await loadResult(tabId);
+  if (!result) return { ok: false, error: "There is no scan result for this tab. Scan the page again." };
+  const wanted = new Set(fingerprints);
+  const stored = await loadStatuses(result.url);
+  const findings = result.findings.map((f) => {
+    if (!wanted.has(f.fingerprint)) return f;
+    if (status === "new") {
+      delete stored[f.fingerprint];
+      const { reason: _reason, ...open } = f;
+      return { ...open, status };
+    }
+    stored[f.fingerprint] = { fingerprint: f.fingerprint, ruleId: f.ruleId, selector: f.element.selector, status, reason, createdAt: new Date().toISOString() };
+    return { ...f, status, reason };
+  });
+  await chrome.storage.local.set({ [statusKey(result.url)]: stored });
+  const updated = withFindings(result, findings);
+  await saveResult(tabId, updated);
+  broadcast({ type: "SCAN_RESULT", tabId, result: updated });
+  return { ok: true, data: updated };
+}
+
+// ---------------------------------------------------------------------------
 // Scanning
 // ---------------------------------------------------------------------------
 
@@ -77,9 +133,10 @@ async function startScan(msg: Extract<Message, { type: "SCAN_START" }>): Promise
       return { ok: false, error };
     }
 
-    await saveResult(tabId, res.data);
-    broadcast({ type: "SCAN_RESULT", tabId, result: res.data });
-    return { ok: true, data: res.data };
+    const result = await applyStatuses(res.data);
+    await saveResult(tabId, result);
+    broadcast({ type: "SCAN_RESULT", tabId, result });
+    return { ok: true, data: result };
   } catch (e) {
     const error = describeError(e);
     broadcast({ type: "SCAN_ERROR", tabId, error });
@@ -103,6 +160,8 @@ async function handle(msg: Message): Promise<Response> {
       await clearResult(msg.tabId);
       await sendToTab(msg.tabId, { type: "CS_RESET", tabId: msg.tabId }, 0);
       return { ok: true };
+    case "SET_STATUS":
+      return setStatus(msg.tabId, msg.fingerprints, msg.status, msg.reason);
     case "GET_SETTINGS":
       return { ok: true, data: await getSettings() };
     default:
@@ -112,7 +171,7 @@ async function handle(msg: Message): Promise<Response> {
 }
 
 /** Messages the service worker answers. Everything else is a broadcast meant for the UI. */
-const REQUESTS = new Set<Message["type"]>(["SCAN_START", "GET_LAST_RESULT", "RESET_RESULT", "GET_SETTINGS"]);
+const REQUESTS = new Set<Message["type"]>(["SCAN_START", "GET_LAST_RESULT", "RESET_RESULT", "GET_SETTINGS", "SET_STATUS"]);
 
 chrome.runtime.onMessage.addListener((raw: unknown, _sender, sendResponse: (r: Response) => void) => {
   if (!isMessage(raw) || !REQUESTS.has(raw.type)) return false;

@@ -31,6 +31,9 @@ export function PeerGroups({ result }: { result: ScanResult }) {
   const tabId = useStore((s) => s.tabId);
   const showToast = useStore((s) => s.showToast);
   const [shown, setShown] = useState<Shown>("none");
+  // Open issues per group.
+  const open = new Map<string, number>();
+  for (const f of result.findings) if (f.groupId && f.status === "new" && f.type === "Definite") open.set(f.groupId, (open.get(f.groupId) ?? 0) + 1);
 
   // A new scan removes what the last one drew.
   useEffect(() => setShown("none"), [result.scanId]);
@@ -51,7 +54,7 @@ export function PeerGroups({ result }: { result: ScanResult }) {
   );
 
   return (
-    <section aria-labelledby={`${id}-groups`} className="mt-3 rounded-xl border border-slate-300 bg-white">
+    <section aria-labelledby={`${id}-groups`} className="mt-2 rounded-md border border-slate-200 bg-white">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
         <h2 id={`${id}-groups`} className="text-sm font-bold text-slate-900">
           Peer groups ({result.groups.length})
@@ -67,7 +70,7 @@ export function PeerGroups({ result }: { result: ScanResult }) {
       ) : (
         <>
           <p className="px-3 pt-2 text-xs text-slate-700">Elements the scan treats as the same kind of thing. Select a group to outline its members on the page.</p>
-          <ul className="max-h-80 overflow-y-auto px-1.5 py-1.5" data-testid="peer-groups">
+          <ul className="px-1.5 py-1.5" data-testid="peer-groups">
             {result.groups.map((group, index) => {
               const on = shown === group.id;
               return (
@@ -86,6 +89,11 @@ export function PeerGroups({ result }: { result: ScanResult }) {
                         {memberNote(group)}
                       </span>
                     </span>
+                    {(open.get(group.id) ?? 0) > 0 && (
+                      <span className="shrink-0 rounded-full bg-orange-100 px-1.5 text-[11px] font-semibold tabular-nums text-orange-900">
+                        {open.get(group.id)} issue{open.get(group.id) === 1 ? "" : "s"}
+                      </span>
+                    )}
                   </button>
                 </li>
               );

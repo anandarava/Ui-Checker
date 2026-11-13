@@ -7,6 +7,7 @@
  *   LAY-10  controls of one row with different heights (their gaps are
  *           reported under LAY-10 by the gap check of layout.ts)
  */
+import type { Mark } from "@shared/types";
 import type { ElementSnapshot } from "../snapshot";
 import type { RuleContext } from "./index";
 import { bucketLabels, bucketNumbers, judge, median, px, valueCounts, type Entry } from "./compare";
@@ -131,6 +132,13 @@ export function runRowRules(ctx: RuleContext): void {
       return kids.length > 0 && facts.hasBox(kids[kids.length - 1]);
     };
 
+    /** The stretch between where a column ends and where its peers end. */
+    const endMark = (el: number, usual: number): Mark => {
+      const b = elements[el].box;
+      const own = b.y + b.height;
+      return { box: { x: b.x, y: Math.min(own, usual), width: b.width, height: Math.abs(usual - own) }, label: px(Math.abs(usual - own)) };
+    };
+
     for (const g of ctx.order) {
       const group = groups[g];
       const members = group.members.filter((i) => inFlow(i) && facts.kindOf(i) === "group" && !facts.isRow(i) && !facts.isCell(i) && drawn(i) && !ctx.reported("LAY-08", i));
@@ -152,13 +160,13 @@ export function runRowRules(ctx: RuleContext): void {
           const usual = median(verdict.expected.entries.map((e) => e.value));
           for (const o of verdict.outliers) {
             const where = `${px(Math.abs(o.value - usual))} ${o.value < usual ? "above" : "below"}`;
-            ctx.report({ ruleId: "LAY-08", element: o.el, group: g, kind: "outlier", property: "bottom edge", expected: "ends level with its peers", actual: `ends ${where} its peers`, values, message: `This ends ${where} the ${verdict.expected.entries.length} peers beside it.` });
+            ctx.report({ ruleId: "LAY-08", element: o.el, group: g, kind: "outlier", property: "bottom edge", expected: "ends level with its peers", actual: `ends ${where} its peers`, values, message: `This ends ${where} the ${verdict.expected.entries.length} peers beside it.`, marks: [endMark(o.el, usual)] });
           }
         } else if (verdict.kind === "pair") {
           // The one that ends early leaves the hole.
           const [short, long] = entries.slice().sort((a, b) => a.value - b.value);
           const where = px(long.value - short.value);
-          ctx.report({ ruleId: "LAY-08", element: short.el, group: g, kind: "pair", property: "bottom edge", expected: null, actual: `ends ${where} above its peer`, values, message: `This ends ${where} above the peer beside it.` });
+          ctx.report({ ruleId: "LAY-08", element: short.el, group: g, kind: "pair", property: "bottom edge", expected: null, actual: `ends ${where} above its peer`, values, message: `This ends ${where} above the peer beside it.`, marks: [endMark(short.el, long.value)] });
         }
       }
     }

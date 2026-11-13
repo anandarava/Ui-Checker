@@ -5,8 +5,8 @@
  */
 import { isMessage, type Message, type Response } from "@shared/messages";
 import { LOADED_FLAG } from "@shared/constants";
-import { clearOverlay, showGroups } from "./overlay/overlay-root";
-import { forgetGroups, overlayGroups, runScan } from "./scanner";
+import { clearOverlay, focusFinding, scrollToElement, showBadges, showGroups } from "./overlay/overlay-root";
+import { forgetGroups, overlayFinding, overlayFindings, overlayGroups, runScan } from "./scanner";
 
 type Flagged = Window & { [LOADED_FLAG]?: boolean };
 
@@ -47,6 +47,30 @@ function onMessage(raw: unknown, _sender: chrome.runtime.MessageSender, sendResp
       } else {
         sendResponse({ ok: true, data: showGroups(groups) });
       }
+      return false;
+    }
+
+    case "CS_SHOW_BADGES": {
+      const { tabId } = msg;
+      const findings = overlayFindings(msg.findingIds);
+      const drawn = showBadges(findings, (findingId) => {
+        chrome.runtime.sendMessage({ type: "FINDING_CLICKED", tabId, findingId } satisfies Message).catch(() => undefined);
+      });
+      sendResponse({ ok: true, data: drawn });
+      return false;
+    }
+
+    case "CS_FOCUS_FINDING": {
+      const finding = msg.findingId === null ? null : (overlayFinding(msg.findingId) ?? null);
+      if (msg.findingId !== null && !finding) {
+        // The page was reloaded since the scan.
+        focusFinding(null, false);
+        sendResponse({ ok: false, error: "This finding belongs to a scan of an earlier version of the page." });
+        return false;
+      }
+      if (finding) scrollToElement(finding.node);
+      focusFinding(finding, msg.peers);
+      sendResponse({ ok: true });
       return false;
     }
 

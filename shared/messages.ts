@@ -10,7 +10,7 @@
  * Every message carries `type` and, where relevant, `tabId` so the side panel
  * (one per window) can ignore events from other tabs.
  */
-import type { ScanOptions, ScanResult } from "./types";
+import type { FindingStatus, ScanOptions, ScanResult } from "./types";
 
 export type Message =
   // ---- Scanning ----
@@ -24,6 +24,14 @@ export type Message =
   | { type: "CS_SCAN"; tabId: number; options: ScanOptions }
   /** Outline peer groups of the last scan on the page: null = all, [] = none. Answers with the number of boxes drawn. */
   | { type: "CS_SHOW_GROUPS"; tabId: number; groupIds: string[] | null }
+  /** Draw numbered badges on the elements of these findings of the last scan: null = all, [] = none. */
+  | { type: "CS_SHOW_BADGES"; tabId: number; findingIds: string[] | null }
+  /** Scroll to a finding and draw its element, its peers and what was measured; null removes it. */
+  | { type: "CS_FOCUS_FINDING"; tabId: number; findingId: string | null; peers: boolean }
+  /** CS -> UI: a badge on the page was clicked. */
+  | { type: "FINDING_CLICKED"; tabId: number; findingId: string }
+  /** UI -> SW: ignore, baseline, mark intentional or reopen findings. Answers with the updated ScanResult. */
+  | { type: "SET_STATUS"; tabId: number; fingerprints: string[]; status: FindingStatus; reason?: string }
   /** Forget the scan result and remove everything the extension drew on the page (panel "Reset"). */
   | { type: "CS_RESET"; tabId: number }
   // ---- State queries ----

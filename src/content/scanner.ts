@@ -14,11 +14,12 @@
  */
 import { ENGINE_VERSION } from "@shared/constants";
 import { RULES } from "@shared/rules";
+import { withFindings } from "@shared/scoring";
 import type { ElementRef, Finding, PeerGroup, RuleResult, ScanOptions, ScanResult } from "@shared/types";
 import { outerHtmlSnippet, uniqueSelector } from "./dom-utils";
 import { fingerprint, textSnippet } from "./fingerprint";
 import { findPeerGroups, type RawGroup } from "./grouping";
-import type { OverlayGroup } from "./overlay/overlay-root";
+import type { OverlayFinding, OverlayGroup } from "./overlay/overlay-root";
 import { waitUntilReady, type ReadyReport } from "./ready";
 import { runRules, type RuleRun } from "./rules";
 import { takeSnapshot, type PageSnapshot } from "./snapshot";
@@ -82,8 +83,23 @@ export function overlayGroups(ids: string[] | null): OverlayGroup[] {
   return lastGroups.filter((g) => wanted.has(g.id));
 }
 
+/** The findings of the last scan with their live elements, for the on-page overlay. */
+let lastFindings: OverlayFinding[] = [];
+
+/** The findings to draw badges for: all of them (null) or the ones asked for. */
+export function overlayFindings(ids: string[] | null): OverlayFinding[] {
+  if (ids === null) return lastFindings;
+  const wanted = new Set(ids);
+  return lastFindings.filter((f) => wanted.has(f.id));
+}
+
+export function overlayFinding(id: string): OverlayFinding | undefined {
+  return lastFindings.find((f) => f.id === id);
+}
+
 export function forgetGroups(): void {
   lastGroups = [];
+  lastFindings = [];
 }
 
 /** Describes snapshot elements for the UI and the reports; each element is described once. */
@@ -121,16 +137,27 @@ function describeGroups(raw: RawGroup[], snapshot: PageSnapshot, refOf: (i: numb
 }
 
 /** Turns the rule findings into what the UI and the reports read. */
-function describeFindings(run: RuleRun, refOf: (i: number) => ElementRef): Finding[] {
+function describeFindings(run: RuleRun, refOf: (i: number) => ElementRef, rawGroups: RawGroup[], snapshot: PageSnapshot): Finding[] {
   const used = new Map<string, number>();
-  return run.findings.map((f) => {
+  lastFindings = [];
+  return run.findings.map((f, index) => {
     const element = refOf(f.element);
     // Stable across scans of the same page: rule, element and what was compared.
     const print = fingerprint(f.ruleId, element.selector, `${f.property}|${element.text}`);
     const n = (used.get(print) ?? 0) + 1;
     used.set(print, n);
+    const id = n === 1 ? print : `${print}-${n}`;
+    lastFindings.push({
+      id,
+      number: index + 1,
+      severity: f.severity,
+      review: f.type === "Review",
+      node: snapshot.nodes[f.element],
+      peers: f.group >= 0 ? rawGroups[f.group].members.map((m) => snapshot.nodes[m]) : [],
+      marks: f.marks ?? [],
+    });
     return {
-      id: n === 1 ? print : `${print}-${n}`,
+      id,
       fingerprint: print,
       ruleId: f.ruleId,
       severity: f.severity,
@@ -144,6 +171,7 @@ function describeFindings(run: RuleRun, refOf: (i: number) => ElementRef): Findi
       actual: f.actual,
       values: f.values,
       message: f.message,
+      ...(f.marks && f.marks.length > 0 ? { marks: f.marks } : {}),
     };
   });
 }
@@ -174,16 +202,18 @@ export async function runScan(options: ScanOptions, onProgress: ProgressFn = () 
 
   const refOf = describer(snapshot);
   const groups = describeGroups(rawGroups, snapshot, refOf);
-  const findings = describeFindings(run, refOf);
+  const findings = describeFindings(run, refOf, rawGroups, snapshot);
 
   onProgress(100, "Done");
-  return {
+  const result: ScanResult = {
     scanId: newScanId(),
     url: location.href,
     title: document.title,
     scannedAt: new Date().toISOString(),
     durationMs: Math.round(performance.now() - started),
     engineVersion: ENGINE_VERSION,
+    score: 100,
+    summary: { high: 0, medium: 0, low: 0, review: 0, excluded: 0 },
     options,
     viewport: { width: window.innerWidth, height: window.innerHeight, devicePixelRatio: window.devicePixelRatio },
     timings: { waitMs: ready.waitedMs, snapshotMs: Math.round(snapshot.durationMs), groupingMs, rulesMs },
@@ -194,4 +224,6 @@ export async function runScan(options: ScanOptions, onProgress: ProgressFn = () 
     notScanned: snapshot.notScanned,
     warnings: readyWarnings(ready),
   };
+  // Score and counts; the service worker computes them again after it has applied the tester's ignores and baselines.
+  return withFindings(result, findings);
 }

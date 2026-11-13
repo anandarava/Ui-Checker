@@ -7,7 +7,7 @@
  * the scanner.
  */
 import { getRule, toleranceFor } from "@shared/rules";
-import { PRESET_FACTOR, type FindingKind, type FindingType, type ScanOptions, type Severity } from "@shared/types";
+import { PRESET_FACTOR, type FindingKind, type FindingType, type Mark, type ScanOptions, type Severity } from "@shared/types";
 import { createFacts, type Facts } from "../facts";
 import type { RawGroup } from "../grouping";
 import type { ElementSnapshot } from "../snapshot";
@@ -32,6 +32,8 @@ export interface RawFinding {
   actual: string;
   values: Array<{ value: string; count: number }>;
   message: string;
+  /** What was measured, in page coordinates, for the redline. */
+  marks?: Mark[];
 }
 
 export interface RuleRun {

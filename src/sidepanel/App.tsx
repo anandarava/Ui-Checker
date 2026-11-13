@@ -6,29 +6,41 @@ import { changeSettings, useBackgroundEvents } from "./hooks/useBackgroundEvents
 import { Button } from "./components/Button";
 import { ScanButton, ScanProgressBar } from "./components/ScanButton";
 import { LandingView } from "./components/LandingView";
-import { RawResults } from "./components/RawResults";
+import { ScoreCard } from "./components/ScoreCard";
+import { ResizableSummary } from "./components/ResizableSummary";
+import { ResultTabs } from "./components/ResultTabs";
+import { Filters } from "./components/Filters";
+import { IssueList } from "./components/IssueList";
+import { IssueDetail } from "./components/IssueDetail";
+import { OverlayMenu, useOverlaySync } from "./components/OverlayMenu";
 import { SelectMenu, TOLERANCE_PRESET_OPTIONS } from "./components/SelectMenu";
 import { Toast } from "./components/Toast";
 import { ResetIcon, SettingsIcon } from "./components/icons";
 
 interface AppProps {
-  /** Binds the panel to a fixed tab (tests, demos); the side panel resolves the active tab itself. */
+  /** Binds the panel to a fixed tab (tests, demos, DevTools); the side panel resolves the active tab itself. */
   tabIdOverride?: number;
 }
 
 /**
  * Side panel. Layout follows the PalTech Accessibility Testing extension:
- * header with the scan settings, action row, progress bar, main view, toast.
+ * header with the scan settings, action row, progress bar, the summary with
+ * the result tabs, filters and issue list (or one issue), and the toast.
  */
 export function App({ tabIdOverride }: AppProps) {
   const id = useId();
   useActiveTab(tabIdOverride);
   useBackgroundEvents();
+  useOverlaySync();
 
   const tabId = useStore((s) => s.tabId);
   const settings = useStore((s) => s.settings);
   const scanning = useStore((s) => s.scanning);
   const result = useStore((s) => s.result);
+  const view = useStore((s) => s.view);
+  const setView = useStore((s) => s.setView);
+  const selectedIssueId = useStore((s) => s.selectedIssueId);
+  const selectIssue = useStore((s) => s.selectIssue);
   const landing = !result;
 
   const reset = useCallback(async () => {
@@ -37,6 +49,15 @@ export function App({ tabIdOverride }: AppProps) {
     await sendToBackground({ type: "RESET_RESULT", tabId: store.tabId });
     store.setResult(null);
   }, []);
+
+  const openIssue = useCallback(
+    (issueId: string) => {
+      selectIssue(issueId);
+      setView("detail");
+    },
+    [selectIssue, setView],
+  );
+  const backToList = useCallback(() => setView("list"), [setView]);
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-white text-slate-900">
@@ -71,6 +92,7 @@ export function App({ tabIdOverride }: AppProps) {
       {!landing && (
         <nav aria-label="Actions" className="flex flex-wrap gap-1.5 border-b border-slate-200 px-3 py-2">
           <ScanButton icon="refresh" />
+          <OverlayMenu />
           <Button onClick={() => void reset()} disabled={scanning} size="action" className="flex-1 basis-[5.5rem] whitespace-normal leading-tight">
             <ResetIcon /> Reset
           </Button>
@@ -82,7 +104,20 @@ export function App({ tabIdOverride }: AppProps) {
 
       <ScanProgressBar />
 
-      <main className="flex min-h-0 flex-1 flex-col">{result ? <RawResults result={result} /> : <LandingView />}</main>
+      <main className="flex min-h-0 flex-1 flex-col">
+        {landing && <LandingView />}
+        {!landing && view === "list" && (
+          <>
+            <ResizableSummary>
+              <ScoreCard />
+            </ResizableSummary>
+            <ResultTabs />
+            <Filters />
+            <IssueList onOpen={openIssue} />
+          </>
+        )}
+        {!landing && view === "detail" && selectedIssueId && <IssueDetail issueId={selectedIssueId} onBack={backToList} />}
+      </main>
 
       <Toast />
     </div>

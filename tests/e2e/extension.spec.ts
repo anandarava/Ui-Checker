@@ -102,6 +102,12 @@ async function sendToBackground<T>(panel: Page, msg: Message): Promise<Response<
   }, msg);
 }
 
+/** Saves a screenshot when UICHECK_E2E_SHOTS names a folder; used to review the UI by eye. */
+async function shot(page: Page, name: string): Promise<void> {
+  const dir = process.env.UICHECK_E2E_SHOTS;
+  if (dir) await page.screenshot({ path: path.join(dir, `${name}.png`) });
+}
+
 async function findTabId(panel: Page, url: string): Promise<number> {
   const id = await panel.evaluate(async (target) => {
     const tabs = await chrome.tabs.query({ url: target + "*" });
@@ -189,7 +195,7 @@ test.describe("extension", () => {
     expect(counts[2]).toBe(counts[0]);
   });
 
-  test("the side panel starts a scan and shows the raw result", async () => {
+  test("the side panel shows the score, the issues by rule and one issue in detail", async () => {
     const url = `${baseUrl}/dashboard-defects.html`;
     const page = await context.newPage();
     await page.goto(url, { waitUntil: "load" });
@@ -198,21 +204,78 @@ test.describe("extension", () => {
     const panel = await context.newPage();
     await panel.goto(`chrome-extension://${extensionId}/src/sidepanel/index.html?tabId=${tabId}`);
     await expect(panel.getByRole("heading", { name: "Scan your page for UI consistency issues" })).toBeVisible();
-
     await panel.getByRole("button", { name: "Start scan" }).click();
 
-    const results = panel.getByTestId("raw-results");
-    await expect(results).toBeVisible();
-    await expect(results).toContainText(url);
-    await expect(results).toContainText("Elements measured");
-    // The seeded defects of the page are listed.
-    await expect(results).toContainText("LAY-06 · Content inset differs between sections");
-    await expect(results).not.toContainText("No checks are built yet");
+    // Summary: the score and the open issues by severity.
+    await expect(panel.getByText(/Consistency score \d+ \/ 100/)).toBeVisible();
+    const result = (await sendToBackground<ScanResult>(helper, { type: "GET_LAST_RESULT", tabId })).data as ScanResult;
+    expect(result.score).toBeGreaterThan(0);
+    expect(result.score).toBeLessThan(100);
+    const open = result.findings.filter((f) => f.type === "Definite").length;
+    await expect(panel.getByRole("tab", { name: new RegExp(`^All ${open}$`) })).toBeVisible();
+    await expect(panel.getByRole("tab", { name: /^Needs review 2$/ })).toBeVisible();
     await expect(panel.getByRole("button", { name: "Rescan page" })).toBeVisible();
 
-    // Reset returns to the landing view.
+    // The list is grouped by rule; a rule expands to its elements.
+    const list = panel.getByTestId("issue-list");
+    const rule = list.getByRole("button", { name: /Content inset differs between sections \(1\)/ });
+    await expect(rule).toHaveAttribute("aria-expanded", "false");
+    await rule.click();
+    await expect(list).toContainText("Content inset 70px, expected 20px");
+    await shot(panel, "panel-list");
+
+    // One issue: what was expected, what was found, the peers, and the element drawn on the page.
+    await list.getByRole("button", { name: /Issue number \d+.*holiday-grid/ }).click();
+    const detail = panel.getByTestId("issue-detail");
+    await expect(detail.getByRole("heading", { name: /Content inset differs between sections/ })).toBeVisible();
+    await expect(detail).toContainText("This block starts 70px from the edge of its section");
+    await expect(detail.getByText("70px", { exact: true })).toBeVisible();
+    await expect(detail.getByText("20px", { exact: true })).toBeVisible();
+    await expect(detail).toContainText("Compared with");
+    const overlay = page.locator("#ui-consistency-checker-overlay");
+    await expect(overlay).toHaveCount(1);
+    await shot(panel, "panel-detail");
+    await shot(page, "page-redline");
+
+    // Ignoring needs a reason, removes the issue from the totals and raises the score.
+    await detail.getByRole("button", { name: "Ignore…" }).click();
+    // The reason is required: submitting without one leaves the form open and the issue as it was.
+    await detail.getByRole("button", { name: "Ignore", exact: true }).click();
+    await expect(detail.getByLabel(/Reason/)).toBeVisible();
+    expect(((await sendToBackground<ScanResult>(helper, { type: "GET_LAST_RESULT", tabId })).data as ScanResult).summary.excluded).toBe(0);
+    await detail.getByLabel(/Reason/).fill("The grid is centred on purpose");
+    await detail.getByRole("button", { name: "Ignore", exact: true }).click();
+    await expect(detail.getByText("Ignored.", { exact: false })).toBeVisible();
+    const afterIgnore = (await sendToBackground<ScanResult>(helper, { type: "GET_LAST_RESULT", tabId })).data as ScanResult;
+    expect(afterIgnore.summary.excluded).toBe(1);
+    expect(afterIgnore.score).toBeGreaterThanOrEqual(result.score);
+    expect(afterIgnore.rules.find((r) => r.id === "LAY-06")?.outcome).toBe("passed");
+
+    // Back in the list the issue is gone from the open ones, and a rescan keeps the decision.
+    await detail.getByRole("button", { name: "Back" }).click();
+    await expect(panel.getByRole("tab", { name: new RegExp(`^All ${open - 1}$`) })).toBeVisible();
+    await expect(overlay).toHaveCount(0);
+    await panel.getByRole("button", { name: "Rescan page" }).click();
+    await expect(panel.getByRole("tab", { name: new RegExp(`^All ${open - 1}$`) })).toBeVisible();
+    const rescanned = (await sendToBackground<ScanResult>(helper, { type: "GET_LAST_RESULT", tabId })).data as ScanResult;
+    const ignored = rescanned.findings.find((f) => f.ruleId === "LAY-06");
+    expect(ignored).toMatchObject({ status: "ignored", reason: "The grid is centred on purpose" });
+
+    // Reopen it, so the next tests see the page as scanned.
+    const reopened = await sendToBackground<ScanResult>(helper, { type: "SET_STATUS", tabId, fingerprints: [ignored!.fingerprint], status: "new" });
+    expect((reopened.data as ScanResult).summary.excluded).toBe(0);
+
+    // Numbered badges on the page; a click on a badge opens the issue in the panel.
+    await panel.getByRole("button", { name: /Overlay on the page/ }).click();
+    await panel.getByLabel(/Numbered badges/).check();
+    await expect(overlay).toHaveCount(1);
+    await shot(page, "page-badges");
+    await panel.keyboard.press("Escape");
+
+    // Reset returns to the landing view and clears the page.
     await panel.getByRole("button", { name: "Reset" }).click();
     await expect(panel.getByRole("button", { name: "Start scan" })).toBeVisible();
+    await expect(overlay).toHaveCount(0);
 
     await panel.close();
     await page.close();
@@ -258,6 +321,7 @@ test.describe("extension", () => {
     await panel.goto(`chrome-extension://${extensionId}/src/sidepanel/index.html?tabId=${tabId}`);
     await panel.getByRole("button", { name: "Start scan" }).click();
 
+    await panel.getByRole("tab", { name: /^Peer groups/ }).click();
     const list = panel.getByTestId("peer-groups");
     await expect(list).toBeVisible();
     await expect(list).toContainText("6 boxes in a grid");

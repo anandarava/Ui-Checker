@@ -1,5 +1,5 @@
 /** Version of the scan engine, written into every result so saved scans can be told apart. */
-export const ENGINE_VERSION = "0.4.0";
+export const ENGINE_VERSION = "0.5.0";
 
 /** Marker the content script sets on `window` once loaded, so it is injected only once per frame. */
 export const LOADED_FLAG = "__uiConsistencyCheckerLoaded";
@@ -13,3 +13,5 @@ export const OVERLAY_HOST_ID = "ui-consistency-checker-overlay";
 /** chrome.storage keys. */
 export const STORAGE_SETTINGS = "settings";
 export const STORAGE_RESULT_PREFIX = "result:";
+/** chrome.storage.local: the findings a tester ignored, baselined or marked intentional, per site. */
+export const STORAGE_STATUS_PREFIX = "status:";

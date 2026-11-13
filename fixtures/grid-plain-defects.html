@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card grid, plain CSS (defects)</title>
+<!--
+  The same card grid exists three times: grid-plain (named classes),
+  grid-utility (utility classes) and grid-hashed (generated class names). All
+  three render the same and carry the same three defects, so the scan must
+  return the same findings for each. This proves nothing depends on class names.
+-->
+<script type="application/json" id="expected">[
+  {
+    "id": "D1",
+    "rule": "LAY-01",
+    "target": "card-4",
+    "note": "Card padding 24px, the other five cards have 16px"
+  },
+  {
+    "id": "D2",
+    "rule": "TYP-02",
+    "target": "title-2",
+    "note": "Card title 18px, the other five are 16px"
+  },
+  {
+    "id": "D3",
+    "rule": "TYP-03",
+    "target": "title-5",
+    "note": "Card title weight 400, the other five are 600"
+  }
+]</script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 32px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.4; color: #1f2937; background: #f3f4f6; }
+  h1, h2, p { margin: 0; }
+  .page-title { font-size: 24px; font-weight: 700; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 280px); gap: 16px; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
+  .card.roomy { padding: 24px; }
+  .card-title { font-size: 16px; font-weight: 600; }
+  .card-title.large { font-size: 18px; }
+  .card-title.light { font-weight: 400; }
+  .card-text { margin-top: 8px; color: #4b5563; }
+  .card-action { display: inline-block; margin-top: 12px; color: #1d4ed8; }
+</style>
+</head>
+<body>
+  <h1 class="page-title">Projects</h1>
+  <div class="grid">
+    <article class="card"><h2 class="card-title">Website redesign</h2><p class="card-text">Refresh the public pages and the pricing table.</p><a class="card-action" href="#">Open</a></article>
+    <article class="card"><h2 class="card-title large" data-fx="title-2">Mobile app</h2><p class="card-text">First release for both phone platforms.</p><a class="card-action" href="#">Open</a></article>
+    <article class="card"><h2 class="card-title">Billing service</h2><p class="card-text">Move invoices to the new provider.</p><a class="card-action" href="#">Open</a></article>
+    <article class="card roomy" data-fx="card-4"><h2 class="card-title">Data warehouse</h2><p class="card-text">Nightly loads and the reporting views.</p><a class="card-action" href="#">Open</a></article>
+    <article class="card"><h2 class="card-title light" data-fx="title-5">Support portal</h2><p class="card-text">Ticket forms and the help articles.</p><a class="card-action" href="#">Open</a></article>
+    <article class="card"><h2 class="card-title">Partner API</h2><p class="card-text">Keys, limits and the public reference.</p><a class="card-action" href="#">Open</a></article>
+  </div>
+</body>
+</html>

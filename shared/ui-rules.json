@@ -1,0 +1,315 @@
+{
+  "version": "0.1.0",
+  "rules": [
+    {
+      "id": "TYP-01",
+      "name": "Font family differs",
+      "category": "typography",
+      "phase": "3A",
+      "description": "Text that plays the same role in peer elements uses a different font family.",
+      "fix": "Use the same font family as the peer elements.",
+      "severity": "High",
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "TYP-02",
+      "name": "Font size differs",
+      "category": "typography",
+      "phase": "3A",
+      "description": "Text that plays the same role in peer elements has a different font size.",
+      "fix": "Use the same font size as the peer elements.",
+      "severity": "High",
+      "tolerance": {
+        "value": 0.5,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "TYP-03",
+      "name": "Font weight differs",
+      "category": "typography",
+      "phase": "3A",
+      "description": "Text that plays the same role in peer elements has a different font weight.",
+      "fix": "Use the same font weight as the peer elements.",
+      "severity": "Medium",
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "TYP-04",
+      "name": "Line height differs",
+      "category": "typography",
+      "phase": "3B",
+      "description": "Text that plays the same role in peer elements has a different line height.",
+      "fix": "Use the same line height as the peer elements.",
+      "severity": "Low",
+      "tolerance": {
+        "value": 1,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "TYP-05",
+      "name": "Text colour differs",
+      "category": "typography",
+      "phase": "3A",
+      "description": "Text that plays the same role in peer elements has a different colour, or is a link in one and plain text in another.",
+      "fix": "Use the same text colour and the same kind of element (link or plain text) as the peers.",
+      "severity": "Medium",
+      "tolerance": {
+        "value": 3,
+        "unit": "deltaE"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "TYP-06",
+      "name": "Text alignment differs",
+      "category": "typography",
+      "phase": "3B",
+      "description": "Text in one peer element is aligned differently from the others (measured from the text itself).",
+      "fix": "Align the text the same way as in the peer elements.",
+      "severity": "Medium",
+      "tolerance": {
+        "value": 2,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "LAY-01",
+      "name": "Inner padding differs",
+      "category": "layout",
+      "phase": "3A",
+      "description": "The space between a container edge and its content differs from the same space in peer containers.",
+      "fix": "Give the container the same padding as its peers.",
+      "severity": "High",
+      "tolerance": {
+        "value": 2,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "LAY-02",
+      "name": "Uneven padding inside one container",
+      "category": "layout",
+      "phase": "3A",
+      "description": "A container has much more space on one side than on the opposite side.",
+      "fix": "Balance the padding, or remove the empty space.",
+      "severity": "Medium",
+      "tolerance": {
+        "value": 1.5,
+        "unit": "ratio"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "LAY-03",
+      "name": "Uneven gaps",
+      "category": "layout",
+      "phase": "3A",
+      "description": "The gaps between sibling elements are not equal, or the row gap and column gap of a grid are very different.",
+      "fix": "Use one gap value between these elements.",
+      "severity": "Medium",
+      "tolerance": {
+        "value": 2,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "LAY-04",
+      "name": "Edges not aligned",
+      "category": "layout",
+      "phase": "3A",
+      "description": "Peer content does not line up on the same edge: content inside peer containers, a title and the content below it, or a page title and the cards below it.",
+      "fix": "Move the element so that its edge lines up with its peers.",
+      "severity": "High",
+      "tolerance": {
+        "value": 2,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "LAY-05",
+      "name": "Size differs",
+      "category": "layout",
+      "phase": "3A",
+      "description": "A box whose size is set by the layout (tile, card, avatar, button in a row) has a different width or height from its peers.",
+      "fix": "Give the box the same size as its peers.",
+      "severity": "Medium",
+      "tolerance": {
+        "value": 2,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "LAY-06",
+      "name": "Content inset differs between sections",
+      "category": "layout",
+      "phase": "3A",
+      "description": "The content of one section starts further in from the section edge than the content of sibling sections.",
+      "fix": "Start the content at the same distance from the section edge as in the other sections.",
+      "severity": "High",
+      "tolerance": {
+        "value": 4,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "LAY-07",
+      "name": "Not vertically centred in its row",
+      "category": "layout",
+      "phase": "3B",
+      "description": "Items that sit in one row (icon and text, or values in columns) are not on the same baseline or centre line.",
+      "fix": "Centre the items on the same line.",
+      "severity": "Low",
+      "tolerance": {
+        "value": 2,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "LAY-08",
+      "name": "Peer columns end at different heights",
+      "category": "layout",
+      "phase": "3B",
+      "description": "Columns or cards that sit side by side end at different heights.",
+      "fix": "Stretch the shorter column, or accept the difference.",
+      "severity": "Low",
+      "tolerance": {
+        "value": 8,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "LAY-09",
+      "name": "Table header not aligned with its column",
+      "category": "layout",
+      "phase": "3B",
+      "description": "A table header does not line up with the cells of its column, or one column mixes alignments.",
+      "fix": "Align the header and the cells of the column the same way.",
+      "severity": "Medium",
+      "tolerance": {
+        "value": 2,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "LAY-10",
+      "name": "Controls in one row differ",
+      "category": "layout",
+      "phase": "3B",
+      "description": "Buttons, inputs and toggles in one row have different heights or uneven gaps.",
+      "fix": "Give the controls of the row one height and one gap.",
+      "severity": "Medium",
+      "tolerance": {
+        "value": 2,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "GRP-01",
+      "name": "Odd element in a group of controls",
+      "category": "group",
+      "phase": "3B",
+      "description": "A group of buttons, toggles or tabs contains an element that does not match the others.",
+      "fix": "Remove the stray element, or make it a proper member of the group.",
+      "severity": "High",
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "GRP-02",
+      "name": "Part missing in one item",
+      "category": "group",
+      "phase": "3B",
+      "description": "One of several repeated items lacks a part the others have, such as an icon or a label.",
+      "fix": "Add the missing part, or remove it from all the items.",
+      "severity": "Medium",
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "GRP-03",
+      "name": "Divider stops short",
+      "category": "group",
+      "phase": "3B",
+      "description": "A divider or border inside one container stops before the container edge, while it reaches the edge in peer containers.",
+      "fix": "Make the divider run the full length, as in the peer containers.",
+      "severity": "Low",
+      "tolerance": {
+        "value": 2,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "BOX-01",
+      "name": "Corner radius differs",
+      "category": "box",
+      "phase": "3B",
+      "description": "A box has a different corner radius from its peers.",
+      "fix": "Use the same corner radius as the peers.",
+      "severity": "Low",
+      "tolerance": {
+        "value": 1,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "BOX-02",
+      "name": "Border or shadow differs",
+      "category": "box",
+      "phase": "3B",
+      "description": "A box has a different border or shadow from its peers.",
+      "fix": "Use the same border and shadow as the peers.",
+      "severity": "Low",
+      "enabled": true,
+      "implemented": false
+    },
+    {
+      "id": "BOX-03",
+      "name": "Background differs",
+      "category": "box",
+      "phase": "3B",
+      "description": "A box has a different background colour from its peers.",
+      "fix": "Use the same background as the peers.",
+      "severity": "Low",
+      "tolerance": {
+        "value": 3,
+        "unit": "deltaE"
+      },
+      "enabled": true,
+      "implemented": false
+    }
+  ]
+}

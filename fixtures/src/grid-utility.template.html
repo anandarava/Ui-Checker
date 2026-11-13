@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card grid, utility classes ({{VARIANT}})</title>
+<!--
+  Same page as grid-plain, written with utility classes (Tailwind style). The
+  few utilities used are defined in the page so the fixture needs no network.
+  The class list says nothing about what an element is; a defect is one
+  utility swapped for another.
+-->
+<script type="application/json" id="expected">[
+  { "id": "D1", "rule": "LAY-01", "target": "card-4", "note": "Card padding 24px, the other five cards have 16px" },
+  { "id": "D2", "rule": "TYP-02", "target": "title-2", "note": "Card title 18px, the other five are 16px" },
+  { "id": "D3", "rule": "TYP-03", "target": "title-5", "note": "Card title weight 400, the other five are 600" }
+]</script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.4; }
+  h1, h2, p { margin: 0; }
+  .p-8 { padding: 32px; } .p-4 { padding: 16px; } .p-6 { padding: 24px; }
+  .mb-6 { margin-bottom: 24px; } .mt-2 { margin-top: 8px; } .mt-3 { margin-top: 12px; }
+  .grid { display: grid; } .grid-cols-3 { grid-template-columns: repeat(3, 280px); } .gap-4 { gap: 16px; }
+  .inline-block { display: inline-block; }
+  .bg-gray-100 { background: #f3f4f6; } .bg-white { background: #fff; }
+  .border { border: 1px solid #e5e7eb; } .rounded-lg { border-radius: 8px; }
+  .text-2xl { font-size: 24px; } .text-lg { font-size: 18px; } .text-base { font-size: 16px; }
+  .font-bold { font-weight: 700; } .font-semibold { font-weight: 600; } .font-normal { font-weight: 400; }
+  .text-gray-800 { color: #1f2937; } .text-gray-600 { color: #4b5563; } .text-blue-700 { color: #1d4ed8; }
+</style>
+</head>
+<body class="p-8 bg-gray-100 text-gray-800">
+  <h1 class="text-2xl font-bold mb-6">Projects</h1>
+  <div class="grid grid-cols-3 gap-4">
+    <article class="bg-white border rounded-lg p-4"><h2 class="text-base font-semibold">Website redesign</h2><p class="mt-2 text-gray-600">Refresh the public pages and the pricing table.</p><a class="inline-block mt-3 text-blue-700" href="#">Open</a></article>
+    <article class="bg-white border rounded-lg p-4"><h2 class="{{#D2}}text-lg{{else}}text-base{{/D2}} font-semibold" data-fx="title-2">Mobile app</h2><p class="mt-2 text-gray-600">First release for both phone platforms.</p><a class="inline-block mt-3 text-blue-700" href="#">Open</a></article>
+    <article class="bg-white border rounded-lg p-4"><h2 class="text-base font-semibold">Billing service</h2><p class="mt-2 text-gray-600">Move invoices to the new provider.</p><a class="inline-block mt-3 text-blue-700" href="#">Open</a></article>
+    <article class="bg-white border rounded-lg {{#D1}}p-6{{else}}p-4{{/D1}}" data-fx="card-4"><h2 class="text-base font-semibold">Data warehouse</h2><p class="mt-2 text-gray-600">Nightly loads and the reporting views.</p><a class="inline-block mt-3 text-blue-700" href="#">Open</a></article>
+    <article class="bg-white border rounded-lg p-4"><h2 class="text-base {{#D3}}font-normal{{else}}font-semibold{{/D3}}" data-fx="title-5">Support portal</h2><p class="mt-2 text-gray-600">Ticket forms and the help articles.</p><a class="inline-block mt-3 text-blue-700" href="#">Open</a></article>
+    <article class="bg-white border rounded-lg p-4"><h2 class="text-base font-semibold">Partner API</h2><p class="mt-2 text-gray-600">Keys, limits and the public reference.</p><a class="inline-block mt-3 text-blue-700" href="#">Open</a></article>
+  </div>
+</body>
+</html>

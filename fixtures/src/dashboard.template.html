@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard fixture ({{VARIANT}})</title>
+<!--
+  First reference screen (PLAN.md, Appendix A and B): an HR dashboard with two
+  columns of section cards. Names and data are made up.
+-->
+<script type="application/json" id="expected">[
+  { "id": "D1", "rule": "LAY-01", "target": "card-org", "note": "Card top padding 29px, 20px in the other four cards" },
+  { "id": "D2", "rule": "LAY-02", "target": "card-details", "note": "Card bottom padding 68px against 20px at the top" },
+  { "id": "D3", "rule": "LAY-06", "target": "holiday-grid", "note": "Grid starts 70px from the card edge, content of the other cards starts at 20px" },
+  { "id": "D4", "rule": "LAY-03", "target": "holiday-grid", "note": "Column gap 68px, row gap 19px" },
+  { "id": "D5", "rule": "TYP-05", "target": "ev-loc-1", "note": "Location is a blue link in the first event card and plain black text in the second" },
+  { "id": "D6", "rule": "LAY-07", "target": "ev-loc-1", "note": "Location item sits 3px lower than the date and time items of its row" },
+  { "id": "D7", "rule": "TYP-02", "target": "who-name", "note": "Value text 22px, the other two values of the row are 17px" },
+  { "id": "D8", "rule": "LAY-04", "target": "page-title", "note": "Page title starts 4px right of the card content edge" },
+  { "id": "D9", "rule": null, "target": "person-name-2", "note": "Three names are cut with a typed ' ...', the others with a CSS ellipsis" },
+  { "id": "D10", "rule": null, "via": "D5", "target": "show-all", "note": "Two link styles: 'Show All' underlined, the location link not" },
+  { "id": "D11", "rule": "LAY-05", "target": "avatar-2", "note": "Avatar 44px, the other seven are 40px" },
+  { "id": "D12", "rule": "BOX-02", "review": true, "target": "tile-1", "note": "Inner cards of two sections styled differently: event cards have a border, holiday tiles a shadow" },
+  { "id": "D13", "rule": "GRP-02", "review": true, "target": "nav-home", "note": "One of three navigation items has no label" },
+  { "id": "D14", "rule": "LAY-08", "target": "col-left", "note": "Left column ends above the right column" },
+  { "id": "D15", "rule": "LAY-04", "target": "who", "note": "First column of the row starts 4px lower than the other two" }
+]</script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 16px; line-height: 1.3; color: #111; background: #0b4a8f; }
+  h1, h2, h3, p { margin: 0; }
+  .shell { display: flex; min-height: 100vh; }
+
+  .sidebar { width: 100px; flex: none; padding-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+  .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 70px; min-height: 64px; border-radius: 6px; color: #fff; text-decoration: none; font-size: 13px; font-weight: 600; }
+  .nav-item[aria-current] { background: #fff; color: #0b4a8f; }
+  .nav-icon { width: 24px; height: 24px; border-radius: 4px; background: currentColor; }
+
+  .main { flex: 1; min-width: 0; background: #f2f2f2; border-top-left-radius: 12px; }
+  .topbar { height: 84px; background: #fff; border-top-left-radius: 12px; display: flex; align-items: center; justify-content: space-between; padding-right: 20px; }
+  .page-title { margin-left: {{#D8}}39px{{else}}35px{{/D8}}; font-size: 28px; font-weight: 400; color: #0b4a8f; }
+  .topbar-right { display: flex; align-items: center; gap: 36px; }
+  .search { width: 384px; height: 44px; border: 0; border-radius: 6px; background: #f2f2f2; padding: 0 12px; font: inherit; }
+  .user { display: flex; align-items: center; gap: 12px; }
+
+  .content { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; padding: 15px; align-items: {{#D14}}start{{else}}stretch{{/D14}}; }
+  .col { display: flex; flex-direction: column; gap: 26px; }
+  .col > .card:last-child { flex: 1; }
+  .card { background: #fff; border-radius: 12px; padding: 20px; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; min-height: 40px; margin-bottom: 12px; }
+  .card-title { font-size: 22px; font-weight: 700; }
+  .link { color: #0b4a8f; text-decoration: underline; }
+  .btn { height: 40px; padding: 0 20px; border: 0; border-radius: 6px; background: #0b4a8f; color: #fff; font: inherit; font-size: 14px; font-weight: 600; }
+  .muted { color: #6b6b6b; font-size: 15px; }
+  .empty { padding: 16px 0 28px; text-align: center; color: #6b6b6b; }
+
+  .avatar { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: #c7d7ea; color: #0b4a8f; font-size: 13px; font-weight: 700; }
+  .avatar.lg { width: 60px; height: 60px; }
+
+  .details { display: flex; align-items: flex-start; gap: 24px; }
+  .who { display: flex; gap: 16px; flex: 1.2;{{#D15}} margin-top: 4px;{{/D15}} }
+  .field { flex: 1; padding-left: 14px; border-left: 1px solid #e3e3e3; min-height: 64px; }
+  .value { margin-top: 12px; font-size: 17px; }
+  .who-name { font-size: {{#D7}}22px{{else}}17px{{/D7}}; }
+
+  .tabs { display: inline-flex; background: #f2f2f2; border-radius: 6px; margin-bottom: 16px; }
+  .tab { height: 38px; padding: 0 20px; border: 0; background: none; font: inherit; font-weight: 600; color: #6b6b6b; }
+  .tab[aria-selected="true"] { color: #0b4a8f; }
+  .sub-title { font-size: 20px; font-weight: 700; margin: 4px 0 8px; }
+  .people { display: flex; margin-bottom: 20px; }
+  .person { width: 115px; text-align: center; }
+  .person-name { max-width: 96px; margin: 4px auto 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .person-date { font-size: 12px; color: #6b6b6b; }
+
+  .event { border: 1px solid #dcdcdc; border-radius: 8px; padding: 12px 13px 14px; }
+  .event + .event { margin-top: 10px; }
+  .event-title { font-weight: 700; }
+  .event-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr; margin-top: 12px; }
+  .event-item { display: flex; align-items: center; gap: 10px; }
+  .ic { width: 16px; height: 16px; flex: none; border: 1.5px solid #333; border-radius: 3px; }
+  .event-link { color: #0b4a8f; text-decoration: none; }
+
+  .holiday-grid { display: grid; grid-template-columns: repeat(3, 1fr); {{#D4}}column-gap: 68px; row-gap: 19px;{{else}}gap: 20px;{{/D4}}{{#D3}} margin: 0 50px;{{/D3}} }
+  .tile { padding: 14px 10px; text-align: center; {{#D12}}background: #f5f4f4; border-radius: 10px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.22);{{else}}background: #fff; border: 1px solid #dcdcdc; border-radius: 8px;{{/D12}} }
+  .tile-name { font-weight: 700; }
+  .tile-date { margin-top: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar" aria-label="Main">
+    <a class="nav-item" href="#" aria-current="page" data-fx="nav-home"><span class="nav-icon"></span>{{#D13}}{{else}}<span class="nav-label">Home</span>{{/D13}}</a>
+    <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Me</span></a>
+    <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Organization</span></a>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <h1 class="page-title" data-fx="page-title">Dashboard</h1>
+      <div class="topbar-right">
+        <input class="search" type="search" placeholder="Search..." aria-label="Search">
+        <div class="user"><span class="avatar">AM</span><span>Alex Morgan</span></div>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="col" data-fx="col-left">
+        <section class="card" data-fx="card-details"{{#D2}} style="padding-bottom: 68px"{{/D2}}>
+          <div class="card-head"><h2 class="card-title">My Details</h2></div>
+          <div class="details">
+            <div class="who" data-fx="who">
+              <span class="avatar lg">AM</span>
+              <div>
+                <div class="who-name" data-fx="who-name">Alex Morgan</div>
+                <div class="muted">Associate Software Engineer</div>
+              </div>
+            </div>
+            <div class="field"><div class="muted">Reporting To</div><div class="value">Priya Raman</div></div>
+            <div class="field"><div class="muted">Shift Details</div><div class="value">Flexible</div></div>
+          </div>
+        </section>
+
+        <section class="card" data-fx="card-org"{{#D1}} style="padding-top: 29px"{{/D1}}>
+          <div class="card-head">
+            <h2 class="card-title">Organization</h2>
+            <button class="btn" type="button">User Manual</button>
+          </div>
+          <div class="tabs" role="tablist">
+            <button class="tab" type="button" role="tab" aria-selected="true">Birthdays</button>
+            <button class="tab" type="button" role="tab" aria-selected="false">Work Anniversaries</button>
+            <button class="tab" type="button" role="tab" aria-selected="false">New Joinees</button>
+          </div>
+          <h3 class="sub-title">Today</h3>
+          <div class="people">
+            <div class="person"><span class="avatar">TB</span><div class="person-name">Tara Balakrishnan</div><div class="person-date">Nov 13</div></div>
+          </div>
+          <h3 class="sub-title">Next 7 days</h3>
+          <div class="people">
+            <div class="person"><span class="avatar">SK</span><div class="person-name">{{#D9}}Sampath ...{{else}}Sampath Kumaran{{/D9}}</div><div class="person-date">Nov 15</div></div>
+            <div class="person"><span class="avatar" data-fx="avatar-2"{{#D11}} style="width: 44px; height: 44px"{{/D11}}>SR</span><div class="person-name" data-fx="person-name-2">{{#D9}}Sasidhar ...{{else}}Sasidhar Rangan{{/D9}}</div><div class="person-date">Nov 15</div></div>
+            <div class="person"><span class="avatar">AV</span><div class="person-name">{{#D9}}Abhishek ...{{else}}Abhishek Varma{{/D9}}</div><div class="person-date">Nov 16</div></div>
+            <div class="person"><span class="avatar">AT</span><div class="person-name">Akhil Thurairajah</div><div class="person-date">Nov 17</div></div>
+            <div class="person"><span class="avatar">KB</span><div class="person-name">Kranthi Bhaskaran</div><div class="person-date">Nov 17</div></div>
+            <div class="person"><span class="avatar">SS</span><div class="person-name">Swati Shanmugam</div><div class="person-date">Nov 17</div></div>
+            <div class="person"><span class="avatar">VM</span><div class="person-name">Vamsi Madhavan</div><div class="person-date">Nov 19</div></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="col">
+        <section class="card">
+          <div class="card-head"><h2 class="card-title">Pending Actions</h2></div>
+          <p class="empty">No Pending Actions</p>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title">Upcoming Events</h2>
+            <a class="link" href="#" data-fx="show-all">Show All</a>
+          </div>
+          <div class="event">
+            <div class="event-title">Annual Sports Meet 2026</div>
+            <div class="event-row">
+              <span class="event-item"><span class="ic"></span><span>Dec 12, 2026</span></span>
+              <span class="event-item" data-fx="ev-loc-1"{{#D6}} style="position: relative; top: 3px"{{/D6}}><span class="ic"></span>{{#D5}}<a class="event-link" href="#">City Stadium</a>{{else}}<span>City Stadium</span>{{/D5}}</span>
+              <span class="event-item"><span class="ic"></span><span>8:00 AM - 5:00 PM IST</span></span>
+            </div>
+          </div>
+          <div class="event">
+            <div class="event-title">All Hands Meet | Q4 2026</div>
+            <div class="event-row">
+              <span class="event-item"><span class="ic"></span><span>Dec 23, 2026</span></span>
+              <span class="event-item"{{#D6}} style="position: relative; top: 3px"{{/D6}}><span class="ic"></span><span>Head Office</span></span>
+              <span class="event-item"><span class="ic"></span><span>3:30 PM - 4:45 PM IST</span></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2 class="card-title">Holidays</h2></div>
+          <div class="holiday-grid" data-fx="holiday-grid">
+            <div class="tile" data-fx="tile-1"><div class="tile-name">New Year's Day</div><div class="tile-date">Jan 01, 2026</div></div>
+            <div class="tile"><div class="tile-name">Harvest Festival</div><div class="tile-date">Jan 15, 2026</div></div>
+            <div class="tile"><div class="tile-name">Republic Day</div><div class="tile-date">Jan 26, 2026</div></div>
+            <div class="tile"><div class="tile-name">Spring New Year</div><div class="tile-date">Mar 19, 2026</div></div>
+            <div class="tile"><div class="tile-name">Monsoon Festival</div><div class="tile-date">Sep 14, 2026</div></div>
+            <div class="tile"><div class="tile-name">Autumn Festival</div><div class="tile-date">Oct 20, 2026</div></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

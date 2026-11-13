@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compliance dashboard fixture (defects)</title>
+<!--
+  Third reference screen (PLAN.md, Appendix D): a dashboard in a different
+  design language. Its section cards have different contents (stat cards, a
+  status list, an accordion with a table, a chart card), so they can only be
+  grouped as a "level group". Layout only: product name, labels and numbers are
+  made up.
+-->
+<script type="application/json" id="expected">[
+  {
+    "id": "D1",
+    "rule": "TYP-02",
+    "target": "title-status",
+    "note": "Section titles at the same level are 16px, 20px and 26px"
+  },
+  {
+    "id": "D2",
+    "rule": "GRP-02",
+    "target": "nav-log",
+    "note": "One of thirteen navigation items has no icon"
+  },
+  {
+    "id": "D3",
+    "rule": "GRP-03",
+    "target": "stat-1",
+    "note": "Divider stops 40px above the card bottom; in the second stat card it reaches the bottom"
+  },
+  {
+    "id": "D4",
+    "rule": "LAY-03",
+    "target": "col-right",
+    "note": "Gaps between cards: 21px and 17px in the left column, 35px in the right column"
+  },
+  {
+    "id": "D5",
+    "rule": "LAY-04",
+    "target": "card-chart",
+    "note": "Left edges inside one card at 21, 27, 21 and 15px"
+  },
+  {
+    "id": "D6",
+    "rule": "TYP-04",
+    "target": "row-wrapped",
+    "note": "Wrapped list row has a tighter line height than the other rows, and its chevron is not centred"
+  },
+  {
+    "id": "D7",
+    "rule": null,
+    "review": true,
+    "target": "status-list",
+    "note": "Status rows use 20px text, every other list on the page uses 16px"
+  },
+  {
+    "id": "D8",
+    "rule": null,
+    "target": "event-1",
+    "note": "Truncated names end in three different ways"
+  },
+  {
+    "id": "D9",
+    "rule": "LAY-10",
+    "target": "help-btn",
+    "note": "Header controls of different heights: search 45px, button 33px"
+  }
+]</script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 16px; line-height: 1.4; color: #1c2b33; background: #fff; }
+  h1, h2, p, ul { margin: 0; }
+  ul { padding: 0; list-style: none; }
+  .shell { display: flex; min-height: 100vh; }
+
+  .sidebar { width: 330px; flex: none; background: #e3ece6; padding: 20px 0; }
+  .brand { padding: 0 90px 24px; font-size: 26px; font-weight: 700; color: #14532d; }
+  .site { margin: 0 18px 36px; padding: 16px; background: #fff; text-align: center; font-weight: 600; font-size: 18px; }
+  .switch { display: inline-flex; margin-top: 16px; border: 1px solid #e3e3e3; border-radius: 4px; overflow: hidden; }
+  .switch-btn { width: 122px; height: 36px; border: 0; background: #fff; font: inherit; font-size: 14px; }
+  .switch-btn[aria-pressed="true"] { background: #444; color: #fff; font-weight: 600; }
+  .nav-item { display: flex; align-items: center; gap: 14px; height: 40px; padding: 0 30px 0 14px; color: #1c2b33; text-decoration: none; font-size: 17px; }
+  .nav-item[aria-current] { background: #fff; font-weight: 700; border-right: 4px solid #16a34a; }
+  .nav-icon { width: 18px; height: 18px; flex: none; border-radius: 4px; background: #1c2b33; }
+  .nav-pad { width: 18px; flex: none; }
+  .nav-label { flex: 1; }
+  .chev { width: 8px; height: 8px; flex: none; border: solid currentColor; border-width: 2px 2px 0 0; transform: rotate(45deg); }
+
+  .main { flex: 1; min-width: 0; }
+  .topbar { height: 66px; display: flex; align-items: center; justify-content: flex-end; gap: 30px; padding-right: 60px; border-bottom: 1px solid #e3e3e3; }
+  .find { width: 338px; height: 45px; border: 1px solid #bbb; border-radius: 4px; padding: 0 12px; font: inherit; }
+  .help { height: 33px; padding: 0 18px; border: 1px solid #15803d; border-radius: 4px; background: #fff; color: #15803d; font: inherit; font-weight: 700; }
+
+  .content { display: grid; grid-template-columns: 617px 617px; gap: 22px; justify-content: center; padding: 22px 0; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 20px; }
+  .card { border: 1px solid #d5d9dc; border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); background: #fff; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 0 21px; background: #f1f2f3; }
+  .card-title { font-size: 20px; font-weight: 700; }
+
+  .stat { display: flex; }
+  .stat-main { width: 254px; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0; }
+  .stat-num { font-size: 50px; font-weight: 800; line-height: 1.1; color: #1d6fb8; }
+  .stat-label { margin-top: 20px; font-weight: 700; text-align: center; }
+  .links { flex: 1; border-left: 1px solid #d5d9dc; }
+  .link-row { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 6px 30px 6px 18px; color: #1c2b33; text-decoration: none; }
+  .link-row + .link-row { border-top: 1px solid #d5d9dc; }
+  .link-num { font-size: 18px; }
+  .link-text { flex: 1; }
+
+  .status-row { display: flex; align-items: center; gap: 14px; min-height: 61px; padding: 0 14px; border-left: 6px solid #9aa3a8; font-size: 20px; }
+  .status-row + .status-row { border-top: 1px solid #d5d9dc; }
+  .status-row.warn { border-left-color: #eab308; }
+  .status-row.bad { border-left-color: #dc2626; }
+  .pct { font-weight: 800; color: #14506e; }
+
+  .events { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .events th, .events td { text-align: left; padding: 0 12px 0 27px; height: 35px; border-top: 1px solid #d5d9dc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 15px; }
+  .events th { font-weight: 400; font-size: 14px; color: #55636b; border-top: 0; }
+  .more { display: block; padding: 8px 0; text-align: center; color: #1c2b33; border-top: 1px solid #d5d9dc; font-size: 14px; }
+
+  .chart-body { padding: 0 21px 21px; }
+  .period { display: block; height: 36px; border: 0; background: none; font: inherit; padding: 0; margin: 12px 0 16px; }
+  .seg { display: inline-flex; padding: 4px; border-radius: 6px; background: #f1f2f3; }
+  .seg-btn { height: 36px; padding: 0 12px; border: 0; border-radius: 4px; background: none; font: inherit; font-size: 18px; }
+  .seg-btn[aria-pressed="true"] { background: #cfdcf5; }
+  .overall { margin-top: 44px; padding: 24px 28px; border-radius: 6px; background: #e3fbdc; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">Example</div>
+    <div class="site">
+      Sample Automation Test Site
+      <div class="switch" role="group" aria-label="View">
+        <button class="switch-btn" type="button" aria-pressed="true">Company</button>
+        <button class="switch-btn" type="button" aria-pressed="false">Personal</button>
+      </div>
+    </div>
+    <nav aria-label="Main">
+      <a class="nav-item" href="#" aria-current="page"><span class="nav-icon"></span><span class="nav-label">Company Dashboard</span></a>
+      <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Control Room</span><span class="chev"></span></a>
+      <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Conflict Check</span></a>
+      <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Communications</span><span class="chev"></span></a>
+      <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Bulletin Board</span></a>
+      <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Assistant</span><span class="chev"></span></a>
+      <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Archiving</span></a>
+      <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Add-Ons</span><span class="chev"></span></a>
+      <a class="nav-item" href="#" data-fx="nav-log"><span class="nav-pad"></span><span class="nav-label">Violations Log</span></a>
+      <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Data Records</span><span class="chev"></span></a>
+      <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Program Management</span><span class="chev"></span></a>
+      <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Certifications</span></a>
+      <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Reviews</span><span class="chev"></span></a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <input class="find" type="search" placeholder="Emulate Employee" aria-label="Emulate employee">
+      <button class="help" type="button" data-fx="help-btn">Need Help?</button>
+    </header>
+
+    <main class="content">
+      <div class="col" style="gap: 21px">
+        <section class="card stat" data-fx="stat-1" style="padding-bottom: 40px">
+          <div class="stat-main"><div class="stat-num">58</div><div class="stat-label">Open Communications</div></div>
+          <div class="links">
+            <a class="link-row" href="#" data-fx="row-wrapped" style="line-height: 1"><span class="link-num">33</span><span class="link-text">Certification Section Ready to Complete for the Current Period</span><span class="chev" style="align-self: flex-start; margin-top: 4px"></span></a>
+            <a class="link-row" href="#"><span class="link-num">21</span><span class="link-text">Question / Clarification</span><span class="chev"></span></a>
+            <a class="link-row" href="#"><span class="link-num">4</span><span class="link-text">Submission Canceled</span><span class="chev"></span></a>
+          </div>
+        </section>
+
+        <section class="card stat" style="margin-bottom: -4px">
+          <div class="stat-main"><div class="stat-num">234</div><div class="stat-label">Pending Preclearance<br>Requests</div></div>
+          <div class="links">
+            <a class="link-row" href="#"><span class="link-num">113</span><span class="link-text">Gift &amp; Entertainment Requests</span><span class="chev"></span></a>
+            <a class="link-row" href="#"><span class="link-num">97</span><span class="link-text">Broker Account Requests</span><span class="chev"></span></a>
+            <a class="link-row" href="#"><span class="link-num">18</span><span class="link-text">Custom Template Requests</span><span class="chev"></span></a>
+            <a class="link-row" href="#"><span class="link-num">6</span><span class="link-text">Other Preclearance Requests</span><span class="chev"></span></a>
+          </div>
+        </section>
+
+        <section class="card" data-fx="card-chart">
+          <div class="card-head"><h2 class="card-title" data-fx="title-chart" style="font-size: 26px">Trade Rule Violations</h2></div>
+          <div class="chart-body">
+            <button class="period" type="button" style="margin-left: 6px">This Week</button>
+            <div class="seg" role="group" aria-label="View">
+              <button class="seg-btn" type="button" aria-pressed="true">Overview</button>
+              <button class="seg-btn" type="button" aria-pressed="false">Trader View</button>
+            </div>
+            <div class="overall" style="margin-left: -6px">Overall: 0 violations</div>
+          </div>
+        </section>
+      </div>
+
+      <div class="col" data-fx="col-right" style="gap: 35px">
+        <section class="card">
+          <div class="card-head"><h2 class="card-title" data-fx="title-status" style="font-size: 16px">Broker Feed Account Status</h2></div>
+          <ul data-fx="status-list">
+            <li class="status-row warn"><span class="pct">59%</span><span>61 accounts with undetermined status</span></li>
+            <li class="status-row"><span class="pct">35%</span><span>36 accounts with no broker feed available</span></li>
+            <li class="status-row bad"><span class="pct">4%</span><span>4 accounts not sending data</span></li>
+            <li class="status-row bad"><span class="pct">3%</span><span>3 accounts with an invalid account number</span></li>
+          </ul>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2 class="card-title">Overdue Certifications: 110</h2><span class="chev"></span></div>
+          <table class="events">
+            <colgroup><col style="width: 50%"><col style="width: 30%"><col style="width: 20%"></colgroup>
+            <thead><tr><th scope="col">Event Name</th><th scope="col">Certification Period</th><th scope="col">Completed</th></tr></thead>
+            <tbody>
+              <tr><td data-fx="event-1">Automated_EventXv0qrZ3v - ...</td><td>Jun 2 - Jun 4</td><td>0%</td></tr>
+              <tr><td>Automated_EventwOpRUniW ...</td><td>Jun 4 - Jun 10</td><td>0%</td></tr>
+              <tr><td>Automated_EventlFNQLplv - ...</td><td>Jun 3 - Jun 11</td><td>0%</td></tr>
+              <tr><td>Automated_Eventhge4zbIF - Annual attestation for all staff</td><td>Jun 2 - Jun 14</td><td>0%</td></tr>
+              <tr><td>Automated_EventHeELyjrA - Annual attestation for all staff</td><td>Jun 4 - Jun 14</td><td>0%</td></tr>
+            </tbody>
+          </table>
+          <a class="more" href="#">View more</a>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><h2 class="card-title">Active Certifications: 3</h2><span class="chev"></span></div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data table fixture (defects)</title>
+<!--
+  Second reference screen (PLAN.md, Appendix C): a directory page with a tab
+  bar, a toolbar, a data table and pagination. Names and data are made up.
+-->
+<script type="application/json" id="expected">[
+  {
+    "id": "D1",
+    "rule": "GRP-01",
+    "target": "view-toggle",
+    "note": "Two stray round markers inside the view toggle"
+  },
+  {
+    "id": "D2",
+    "rule": null,
+    "target": "job-3",
+    "note": "One job title is cut with a typed ' ...', the others with a CSS ellipsis"
+  },
+  {
+    "id": "D3",
+    "rule": null,
+    "target": "email-1",
+    "note": "Truncated cells have no title attribute, so the full text cannot be read"
+  },
+  {
+    "id": "D4",
+    "rule": "GRP-02",
+    "review": true,
+    "both": true,
+    "target": "th-email",
+    "note": "Sort icon on three of seven column headers (probably intentional)"
+  },
+  {
+    "id": "D5",
+    "rule": "LAY-04",
+    "target": "tabs",
+    "note": "Tab text starts 6px right of the table text column"
+  },
+  {
+    "id": "D6",
+    "rule": "LAY-10",
+    "target": "btn-columns",
+    "note": "Toolbar button 50px high, the other controls of the row are 46px"
+  },
+  {
+    "id": "D7",
+    "rule": "LAY-03",
+    "target": "pager",
+    "note": "Gap before the page numbers 90px, after them 100px"
+  },
+  {
+    "id": "D8",
+    "rule": "LAY-04",
+    "target": "page-size",
+    "note": "Page size box ends 7px inside the right edge of the table"
+  },
+  {
+    "id": "D9",
+    "rule": "LAY-05",
+    "target": "avatar-4",
+    "note": "Avatar 44px, the others are 40px"
+  },
+  {
+    "id": "D10",
+    "rule": "GRP-02",
+    "review": true,
+    "target": "nav-org",
+    "note": "The current navigation item has no label, the other two have one"
+  }
+]</script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 16px; line-height: 1.3; color: #111; background: #0b4a8f; }
+  h1, p { margin: 0; }
+  .shell { display: flex; min-height: 100vh; }
+
+  .sidebar { width: 100px; flex: none; padding-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+  .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 70px; min-height: 64px; border-radius: 6px; color: #fff; text-decoration: none; font-size: 13px; font-weight: 600; }
+  .nav-item[aria-current] { background: #fff; color: #0b4a8f; }
+  .nav-icon { width: 24px; height: 24px; border-radius: 4px; background: currentColor; }
+
+  .main { flex: 1; min-width: 0; background: #f2f2f2; border-top-left-radius: 12px; }
+  .topbar { height: 84px; background: #fff; border-top-left-radius: 12px; display: flex; align-items: center; justify-content: space-between; padding-right: 20px; }
+  .page-title { margin-left: 39px; font-size: 28px; font-weight: 400; color: #0b4a8f; }
+  .search { width: 384px; height: 44px; border: 0; border-radius: 6px; background: #f2f2f2; padding: 0 12px; font: inherit; }
+
+  .page { padding: 15px; }
+  .tabs { display: flex; gap: 30px; background: #fff; padding: 0 0 0 30px; height: 58px; align-items: center; }
+  .tab { border: 0; background: none; padding: 0; font: inherit; color: #111; }
+  .tab[aria-selected="true"] { font-weight: 700; text-decoration: underline; text-underline-offset: 6px; }
+
+  .toolbar { display: flex; align-items: center; gap: 25px; margin: 20px 0; }
+  .toolbar .grow { flex: 1; }
+  .control { height: 46px; border: 0; border-radius: 6px; background: #fff; padding: 0 16px; font: inherit; font-size: 15px; display: inline-flex; align-items: center; gap: 10px; }
+  .control.find { width: 374px; }
+  .toggle { display: inline-flex; align-items: center; height: 46px; border-radius: 6px; background: #fff; overflow: hidden; }
+  .toggle-btn { width: 64px; height: 46px; border: 0; background: none; display: inline-flex; align-items: center; justify-content: center; }
+  .toggle-btn[aria-pressed="true"] { background: #0b4a8f; }
+  .glyph { width: 18px; height: 14px; border: 2px solid #0b4a8f; border-radius: 2px; }
+  .toggle-btn[aria-pressed="true"] .glyph { border-color: #fff; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: #111; margin: 0 6px; }
+  .dot.ring { background: #fff; border: 3px solid #b3541e; }
+
+  table { width: 100%; border-collapse: collapse; background: #fff; table-layout: fixed; }
+  th, td { text-align: left; padding: 0 12px 0 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  th { height: 56px; background: #eaf1fb; color: #0b4a8f; font-size: 16px; font-weight: 700; text-transform: uppercase; }
+  td { height: 56px; border-top: 1px solid #d9d9d9; }
+  .sort { display: inline-block; width: 8px; height: 12px; margin-left: 6px; border: solid #7a8aa0; border-width: 2px 0; }
+  .name-cell { display: flex; align-items: center; gap: 12px; height: 56px; }
+  .avatar { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: #c7d7ea; color: #0b4a8f; font-size: 13px; font-weight: 700; }
+  .name-link { color: #0b4a8f; }
+
+  .pager { display: flex; align-items: center; height: 76px; padding-left: 24px; }
+  .pager .grow { flex: 1; }
+  .pager-btn { border: 0; background: none; font: inherit; font-weight: 600; padding: 0; }
+  .pager-btn[disabled] { color: #8a8a8a; }
+  .pages { display: flex; gap: 30px; margin: 0 100px 0 90px; }
+  .page-num { width: 30px; height: 28px; border: 0; border-radius: 4px; background: none; font: inherit; font-weight: 600; }
+  .page-num[aria-current] { background: #0b4a8f; color: #fff; }
+  .page-size { display: inline-flex; align-items: center; gap: 28px; height: 44px; padding: 0 20px; border-radius: 6px; background: #eaf1fb; font-weight: 700; margin-right: 7px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar" aria-label="Main">
+    <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Home</span></a>
+    <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Me</span></a>
+    <a class="nav-item" href="#" aria-current="page" data-fx="nav-org"><span class="nav-icon"></span></a>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <h1 class="page-title">Organization | Employees Directory</h1>
+      <input class="search" type="search" placeholder="Search..." aria-label="Search">
+    </header>
+
+    <main class="page">
+      <div class="tabs" role="tablist" data-fx="tabs">
+        <button class="tab" type="button" role="tab" aria-selected="true">Employees Directory</button>
+        <button class="tab" type="button" role="tab" aria-selected="false">Organization Tree</button>
+        <button class="tab" type="button" role="tab" aria-selected="false">Documents</button>
+      </div>
+
+      <div class="toolbar">
+        <input class="control find" type="search" placeholder="Search Employee" aria-label="Search employee">
+        <span class="grow"></span>
+        <button class="control" type="button" data-fx="btn-columns" style="height: 50px">Customize Columns</button>
+        <button class="control" type="button">Filter</button>
+        <div class="toggle" role="group" aria-label="View" data-fx="view-toggle">
+          <span class="dot"></span>
+          <button class="toggle-btn" type="button" aria-pressed="false" aria-label="Grid view"><span class="glyph"></span></button>
+          <span class="dot ring"></span>
+          <button class="toggle-btn" type="button" aria-pressed="true" aria-label="List view"><span class="glyph"></span></button>
+        </div>
+      </div>
+
+      <table>
+        <colgroup><col style="width: 15%"><col style="width: 15%"><col style="width: 15%"><col style="width: 12%"><col style="width: 15%"><col style="width: 13%"><col style="width: 15%"></colgroup>
+        <thead>
+          <tr>
+            <th scope="col">Employee ID<span class="sort"></span></th>
+            <th scope="col">Name<span class="sort"></span></th>
+            <th scope="col" data-fx="th-email">Email</th>
+            <th scope="col">Job Title</th>
+            <th scope="col">Department</th>
+            <th scope="col">Location</th>
+            <th scope="col">Date of Joining<span class="sort"></span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>2180</td><td><div class="name-cell"><span class="avatar">SC</span><a class="name-link" href="#">Sara Chandran</a></div></td><td data-fx="email-1">sara.chandran.longname@example.test</td><td>Senior Executive</td><td>Marketing</td><td>Head Office</td><td>02/11/2026</td></tr>
+          <tr><td>2179</td><td><div class="name-cell"><span class="avatar">RT</span><a class="name-link" href="#">Roopa Thomas</a></div></td><td>roopa.thomas@example.test</td><td>Associate</td><td>Marketing</td><td>Head Office</td><td>02/11/2026</td></tr>
+          <tr><td>2178</td><td><div class="name-cell"><span class="avatar">MV</span><a class="name-link" href="#">Mona Verghese</a></div></td><td>mona.verghese@example.test</td><td data-fx="job-3">Senior Software ...</td><td>.Net</td><td>Head Office</td><td>02/11/2026</td></tr>
+          <tr><td>2177</td><td><div class="name-cell"><span class="avatar" data-fx="avatar-4" style="width: 44px; height: 44px">SD</span><a class="name-link" href="#">Samir Dutta</a></div></td><td>samir.dutta@example.test</td><td>Trainee</td><td>Training</td><td>Head Office</td><td>22/10/2026</td></tr>
+          <tr><td>2176</td><td><div class="name-cell"><span class="avatar">ST</span><a class="name-link" href="#">Sandeep Tiwari</a></div></td><td>sandeep.tiwari@example.test</td><td>Senior Executive</td><td>Business Development</td><td>Head Office</td><td>16/10/2026</td></tr>
+          <tr><td>2175</td><td><div class="name-cell"><span class="avatar">GR</span><a class="name-link" href="#">Gautam Rajan</a></div></td><td>gautam.rajan.longname@example.test</td><td>Senior Executive</td><td>Facility Management</td><td>Head Office</td><td>07/10/2026</td></tr>
+          <tr><td>2174</td><td><div class="name-cell"><span class="avatar">BP</span><a class="name-link" href="#">Bhavana Pillai</a></div></td><td>bhavana.pillai@example.test</td><td>Trainee Software Engineer</td><td>Training</td><td>Head Office</td><td>05/10/2026</td></tr>
+          <tr><td>2173</td><td><div class="name-cell"><span class="avatar">SV</span><a class="name-link" href="#">Swati Varghese</a></div></td><td>swati.varghese@example.test</td><td>Director</td><td>Product Management</td><td>Head Office</td><td>05/10/2026</td></tr>
+          <tr><td>2172</td><td><div class="name-cell"><span class="avatar">BD</span><a class="name-link" href="#">Brijesh Desai</a></div></td><td>brijesh.desai@example.test</td><td>Principal Software Engineer</td><td>Quality Engineering</td><td>Remote</td><td>01/10/2026</td></tr>
+        </tbody>
+      </table>
+
+      <div class="pager" data-fx="pager">
+        <button class="pager-btn" type="button" disabled>Prev</button>
+        <div class="pages">
+          <button class="page-num" type="button" aria-current="page">1</button>
+          <button class="page-num" type="button">2</button>
+          <button class="page-num" type="button">3</button>
+          <button class="page-num" type="button">4</button>
+          <button class="page-num" type="button">5</button>
+        </div>
+        <button class="pager-btn" type="button">Next</button>
+        <span class="grow"></span>
+        <div class="page-size" data-fx="page-size"><span>Page Size</span><span>10</span></div>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

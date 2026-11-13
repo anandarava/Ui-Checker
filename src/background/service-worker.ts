@@ -126,6 +126,7 @@ async function startScan(msg: Extract<Message, { type: "SCAN_START" }>): Promise
       ...msg.options,
       disabledRules: msg.options.disabledRules ?? settings.disabledRules,
       minGroupSize: msg.options.minGroupSize ?? settings.minGroupSize,
+      tolerances: msg.options.tolerances ?? settings.ruleTolerances,
     };
 
     const res = await sendToTab<ScanResult>(tabId, { type: "CS_SCAN", tabId, options }, 0);

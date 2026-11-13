@@ -17,6 +17,12 @@ export type View = "list" | "detail";
 /** Result tabs: every finding, one tab per category, needs review, the rules, and the peer groups. */
 export type ResultTab = "all" | RuleCategory | "review" | "failed" | "passed" | "groups";
 
+/** What a scan covers: the whole page, or one element and everything inside it. */
+export interface ScanScope {
+  kind: "page" | "selector";
+  selector?: string;
+}
+
 export type ToastKind = "info" | "success" | "error";
 
 export interface Toast {
@@ -64,7 +70,13 @@ interface State {
   showBadges: boolean;
   /** Scroll to and outline the element whenever a finding is opened. */
   autoHighlight: boolean;
+  /** What the next scan covers. */
+  scope: ScanScope;
+  /** The element picker is running on the page. */
+  picking: boolean;
 
+  setScope(scope: ScanScope): void;
+  setPicking(v: boolean): void;
   setTabId(tabId: number | null): void;
   setSettings(settings: Settings): void;
   setScanning(scanning: boolean): void;
@@ -100,11 +112,15 @@ export const useStore = create<State>((set, get) => ({
   expandedRules: [],
   showBadges: false,
   autoHighlight: true,
+  scope: { kind: "page" },
+  picking: false,
+  setScope: (scope) => set({ scope }),
+  setPicking: (picking) => set({ picking }),
 
   // Another tab has its own result: drop the one on screen until it is restored for the new tab.
   setTabId: (tabId) => {
     if (get().tabId === tabId) return;
-    set({ tabId, result: null, scanning: false, progress: null, view: "list", selectedIssueId: null, filters: DEFAULT_FILTERS, resultTab: "all", expandedRules: [], showBadges: false });
+    set({ tabId, result: null, scanning: false, progress: null, view: "list", selectedIssueId: null, filters: DEFAULT_FILTERS, resultTab: "all", expandedRules: [], showBadges: false, scope: { kind: "page" }, picking: false });
   },
   setSettings: (settings) => set({ settings }),
   setScanning: (scanning) => set({ scanning }),

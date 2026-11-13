@@ -289,6 +289,19 @@ describe("layout rules", () => {
     expect(scan(`<main>${section(1, 0, 20)}${section(2, 220, 20)}${section(3, 440, 22)}</main>`, "normal", ["LAY-06"]).keys).toEqual([]);
   });
 
+  it("uses a tolerance set for one rule instead of the preset", () => {
+    const col = (n: number, x: number, y: number): string => `<div id="p${n}" data-box="${x} ${y} 100 60" style="${BOX}"><p>x</p></div>`;
+    document.body.innerHTML = `<div style="display:flex; align-items:flex-start" data-box="0 0 400 70">${col(1, 0, 0)}${col(2, 120, 0)}${col(3, 240, 4)}</div>`;
+    const snapshot = takeSnapshot(document.body);
+    const groups = findPeerGroups(snapshot.elements);
+    const run = (tolerances?: Record<string, number>) => runRules(snapshot.elements, groups, { scope: "page", tolerancePreset: "normal", rules: [], tolerances }, ["LAY-04"]).findings.length;
+    expect(run()).toBe(1);
+    expect(run({ "LAY-04": 5 })).toBe(0);
+    expect(run({ "LAY-04": 1 })).toBe(1);
+    // A tolerance for another rule changes nothing here.
+    expect(run({ "TYP-02": 50 })).toBe(1);
+  });
+
   it("uses the tolerance of the preset", () => {
     const col = (n: number, x: number, y: number): string => `<div id="p${n}" data-box="${x} ${y} 100 60" style="${BOX}"><p>x</p></div>`;
     const row = `<div style="display:flex; align-items:flex-start" data-box="0 0 400 70">${col(1, 0, 0)}${col(2, 120, 0)}${col(3, 240, 3)}</div>`;

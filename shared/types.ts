@@ -185,6 +185,8 @@ export interface ScanOptions {
   /** Rule ids the user switched off. */
   disabledRules?: string[];
   minGroupSize?: number;
+  /** Tolerances set for single rules, by rule id; they override the preset. */
+  tolerances?: Record<string, number>;
 }
 
 export interface ScanResult {
@@ -223,6 +225,8 @@ export interface Settings {
   disabledRules: string[];
   /** Smallest number of members a peer group needs before it is compared. */
   minGroupSize: number;
+  /** Tolerances the user set for single rules, by rule id; they override the preset. */
+  ruleTolerances: Record<string, number>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -231,4 +235,5 @@ export const DEFAULT_SETTINGS: Settings = {
   tolerancePreset: "normal",
   disabledRules: [],
   minGroupSize: 2,
+  ruleTolerances: {},
 };

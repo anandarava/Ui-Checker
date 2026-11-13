@@ -83,6 +83,9 @@ export function runRules(elements: ElementSnapshot[], groups: RawGroup[], option
     facts: createFacts(elements),
     runs: (ruleId) => active.has(ruleId),
     tolerance: (ruleId) => {
+      // A tolerance the user set for this rule wins over the preset.
+      const own = options.tolerances?.[ruleId];
+      if (typeof own === "number" && Number.isFinite(own) && own >= 0) return own;
       const rule = getRule(ruleId);
       return rule ? (toleranceFor(rule, options.tolerancePreset) ?? 0) : 0;
     },

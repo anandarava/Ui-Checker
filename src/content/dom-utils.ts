@@ -6,7 +6,21 @@
  * fix in one extension can be copied to the other.
  */
 
+import { OWN_UI_ATTR } from "@shared/constants";
+
 const MAX_HTML_SNIPPET = 160;
+
+/** True when the element belongs to the extension (the overlay, the picker). */
+export function isExtensionNode(el: Element | null | undefined): boolean {
+  if (!el) return false;
+  try {
+    if (el.closest(`[${OWN_UI_ATTR}]`) !== null) return true;
+  } catch {
+    /* detached or exotic node */
+  }
+  const root = el.getRootNode();
+  return root instanceof ShadowRoot ? isExtensionNode(root.host) : false;
+}
 
 function cssEscape(value: string): string {
   if (typeof CSS !== "undefined" && typeof CSS.escape === "function") return CSS.escape(value);

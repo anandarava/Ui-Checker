@@ -6,6 +6,7 @@
 import { isMessage, type Message, type Response } from "@shared/messages";
 import { LOADED_FLAG } from "@shared/constants";
 import { clearOverlay, focusFinding, scrollToElement, showBadges, showGroups } from "./overlay/overlay-root";
+import { cancelPicker, startPicker } from "./picker";
 import { forgetGroups, overlayFinding, overlayFindings, overlayGroups, runScan } from "./scanner";
 
 type Flagged = Window & { [LOADED_FLAG]?: boolean };
@@ -106,7 +107,22 @@ function onMessage(raw: unknown, _sender: chrome.runtime.MessageSender, sendResp
       return true; // answered asynchronously
     }
 
+    case "CS_PICK_START": {
+      const { tabId } = msg;
+      startPicker((picked) => {
+        chrome.runtime.sendMessage({ type: "PICKED", tabId, selector: picked.selector } satisfies Message).catch(() => undefined);
+      });
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    case "CS_PICK_CANCEL":
+      cancelPicker();
+      sendResponse({ ok: true });
+      return false;
+
     case "CS_RESET":
+      cancelPicker();
       clearOverlay();
       forgetGroups();
       sendResponse({ ok: true });

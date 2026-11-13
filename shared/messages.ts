@@ -36,6 +36,11 @@ export type Message =
   | { type: "CS_PREPARE_SHOT"; tabId: number; findingId: string }
   /** UI -> SW: ignore, baseline, mark intentional or reopen findings. Answers with the updated ScanResult. */
   | { type: "SET_STATUS"; tabId: number; fingerprints: string[]; status: FindingStatus; reason?: string }
+  /** Start (or cancel) the element picker of "Part of page". */
+  | { type: "CS_PICK_START"; tabId: number }
+  | { type: "CS_PICK_CANCEL"; tabId: number }
+  /** CS -> UI: an element was picked (selector), or picking was cancelled (null). */
+  | { type: "PICKED"; tabId: number; selector: string | null }
   /** Forget the scan result and remove everything the extension drew on the page (panel "Reset"). */
   | { type: "CS_RESET"; tabId: number }
   // ---- State queries ----

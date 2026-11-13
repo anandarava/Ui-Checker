@@ -6,6 +6,7 @@ import { changeSettings, useBackgroundEvents } from "./hooks/useBackgroundEvents
 import { Button } from "./components/Button";
 import { ScanButton, ScanProgressBar } from "./components/ScanButton";
 import { LandingView } from "./components/LandingView";
+import { ScopeControl } from "./components/ScopeControl";
 import { ScoreCard } from "./components/ScoreCard";
 import { ResizableSummary } from "./components/ResizableSummary";
 import { ResultTabs } from "./components/ResultTabs";
@@ -21,6 +22,8 @@ import { ResetIcon, SettingsIcon } from "./components/icons";
 interface AppProps {
   /** Binds the panel to a fixed tab (tests, demos, DevTools); the side panel resolves the active tab itself. */
   tabIdOverride?: number;
+  /** DevTools only: selector of the element selected in the Elements panel ($0). */
+  getInspectedSelector?(): Promise<string | null>;
 }
 
 /**
@@ -28,7 +31,7 @@ interface AppProps {
  * header with the scan settings, action row, progress bar, the summary with
  * the result tabs, filters and issue list (or one issue), and the toast.
  */
-export function App({ tabIdOverride }: AppProps) {
+export function App({ tabIdOverride, getInspectedSelector }: AppProps) {
   const id = useId();
   useActiveTab(tabIdOverride);
   useBackgroundEvents();
@@ -93,6 +96,7 @@ export function App({ tabIdOverride }: AppProps) {
       {!landing && (
         <nav aria-label="Actions" className="flex flex-wrap gap-1.5 border-b border-slate-200 px-3 py-2">
           <ScanButton icon="refresh" />
+          <ScopeControl getInspectedSelector={getInspectedSelector} />
           <OverlayMenu />
           <Button onClick={() => void reset()} disabled={scanning} size="action" className="flex-1 basis-[5.5rem] whitespace-normal leading-tight">
             <ResetIcon /> Reset

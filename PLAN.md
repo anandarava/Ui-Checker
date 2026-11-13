@@ -329,6 +329,28 @@ Noise removed after the first run on the real-site list: underlines under links 
 
 **Size:** M
 
+**Status: done**, in three parts. The side panel, the options page and the reports are copied from the PalTech Accessibility Testing extension (same component and file names, same classes and styles) with the wording and data of this tool.
+
+- **Results UI:** score card with the severity donut, result tabs (All, Typography, Layout & spacing, Group structure, Box style, Needs review, Failed rules, Passed rules, Peer groups), filters (search, severity, status, peer group), the issue list grouped by rule with shared-cause rows ("Font size 17px, expected 22px × 3"), and an issue view with expected and found values, the values of the group, the peers, the fix, selector and HTML, and a "3 of 12" stepper.
+- **Actions:** ignore, intentional and add to baseline, each with a reason; reopen. They are kept per site (by fingerprint), so the next scan keeps the decision, and they are listed and can be removed on the options page.
+- **Consistency score** (`shared/scoring.ts`): 100 × (1 − weight of the peer groups with open findings ÷ weight of all peer groups). A group counts by its most severe open finding (High 7, Medium 3, Low 1), a consistent group at the full weight. Findings for review and excluded findings do not count. A finding that is not about a group counts its element as a unit of its own.
+- **Overlay:** numbered badges on the open issues (a click opens the issue), the peer groups, and for the open issue its element, its peers (dashed) and the measurement drawn as a redline with its size. The redline is drawn for padding (LAY-01, LAY-02), edges (LAY-04), section inset (LAY-06) and column ends (LAY-08); the other rules show the element and its peers.
+- **Settings:** tolerance preset, a tolerance per rule that overrides the preset, rules on or off, minimum group size, organisation and "Prepared by". Options page sections: General, Rules, Baselines, Import / Export, Privacy.
+- **Scope:** full page or part of the page, by CSS selector, by picking an element on the page, or (in DevTools) the element selected in the Elements panel.
+- **DevTools panel:** the same panel bound to the inspected tab.
+- **Reports:** HTML in the two-part layout (Summary: verdict, score, issues by severity, fix these first, where it shows, what was tested, about this report; Developer details: per rule and element), with a screenshot per open finding that shows the element and the redline, and JSON. The panel saves the file, so the extension needs no download permission. Up to 40 screenshots per report; Chrome allows two captures a second, so a report with screenshots takes about half a second per finding.
+
+Checked: browser tests drive the panel on the dashboard fixture (scan, open a rule and an issue, ignore with a reason, rescan, badges, reset), export all three report kinds, scan part of a page by selector and by picking, and change the settings on the options page. The panel, the redline and the report were also looked at as screenshots.
+
+Not done, or not checked:
+
+- The **two-pane layout** of the accessibility panel (list and issue side by side when the panel is wide) is not built: the panel always shows one or the other.
+- The **"Spacing grid" overlay layer** is not built.
+- The **DevTools panel** is built but has no automated test (a test cannot open DevTools); it has not been opened by hand either.
+- The extension's **own UI has not been scanned with the accessibility extension**, as the Look-and-feel section asks.
+- **Saved scans, compare, site scan and the page-changed banner** are in the Look-and-feel table but belong to Phase 6 and are not built.
+- "A tester can understand every finding without opening DevTools" has not been tried with a tester.
+
 Build everything in **Look and feel** above, by copying the accessibility extension's side panel, overlay, options page and exporters.
 
 - Side panel results grouped by rule ("Inner inset differs (3)"), with the same instance stepper.

@@ -55,6 +55,8 @@ export default defineConfig({
       input: {
         sidepanel: r("./src/sidepanel/index.html"),
         options: r("./src/options/index.html"),
+        // The DevTools page is in the manifest; the panel it opens is not, so it is listed here.
+        devtoolsPanel: r("./src/devtools/panel.html"),
       },
     },
   },

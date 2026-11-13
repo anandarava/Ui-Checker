@@ -427,6 +427,115 @@ test.describe("extension", () => {
     await page.close();
   });
 
+  test("scans part of a page: by selector, and by picking an element on the page", async () => {
+    const url = `${baseUrl}/dashboard-defects.html`;
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: "load" });
+    const tabId = await findTabId(helper, url);
+    const whole = (await sendToBackground<ScanResult>(helper, { type: "SCAN_START", tabId, options: SCAN_OPTIONS })).data as ScanResult;
+
+    // By selector, through the service worker: only the holidays grid.
+    const part = await sendToBackground<ScanResult>(helper, { type: "SCAN_START", tabId, options: { ...SCAN_OPTIONS, scope: "selector", selector: ".holiday-grid" } });
+    expect(part.ok, part.error).toBe(true);
+    const partial = part.data as ScanResult;
+    expect(partial.elementsScanned).toBeLessThan(whole.elementsScanned);
+    expect(partial.elementsScanned).toBe(19); // the grid, 6 tiles, 12 texts
+    expect(partial.findings.map((x) => x.ruleId)).toEqual(["LAY-03"]);
+    const missing = await sendToBackground(helper, { type: "SCAN_START", tabId, options: { ...SCAN_OPTIONS, scope: "selector", selector: "#nope" } });
+    expect(missing.ok).toBe(false);
+    expect(missing.error).toMatch(/No element matches/);
+
+    // In the panel: choose "Part of page", type a selector, scan.
+    const panel = await context.newPage();
+    await panel.goto(`chrome-extension://${extensionId}/src/sidepanel/index.html?tabId=${tabId}`);
+    await expect(panel.getByRole("button", { name: "Rescan page" })).toBeVisible();
+    await panel.getByRole("button", { name: /Scan scope: Full page/ }).click();
+    await panel.getByText("Part of page", { exact: true }).click();
+    await panel.getByLabel("CSS selector").fill("!!");
+    await panel.getByRole("button", { name: "Scan", exact: true }).click();
+    await expect(panel.getByRole("alert")).toContainText("is not a valid CSS selector");
+    await panel.getByLabel("CSS selector").fill(".holiday-grid");
+    await panel.getByRole("button", { name: "Scan", exact: true }).click();
+    await expect(panel.getByRole("button", { name: "Rescan part" })).toBeVisible();
+    await expect
+      .poll(async () => ((await sendToBackground<ScanResult>(helper, { type: "GET_LAST_RESULT", tabId })).data as ScanResult).options.selector)
+      .toBe(".holiday-grid");
+
+    // Pick an element on the page: the picker outlines it and the panel scans it.
+    await panel.getByRole("button", { name: "Pick an element on the page" }).click();
+    await expect(panel.getByRole("button", { name: "Cancel picking" })).toBeVisible();
+    await page.bringToFront();
+    await page.locator(".event").first().click({ position: { x: 5, y: 5 } });
+    await expect
+      .poll(async () => ((await sendToBackground<ScanResult>(helper, { type: "GET_LAST_RESULT", tabId })).data as ScanResult).options.selector ?? "")
+      .toMatch(/event/);
+    const picked = (await sendToBackground<ScanResult>(helper, { type: "GET_LAST_RESULT", tabId })).data as ScanResult;
+    expect(await page.locator(picked.options.selector!).count()).toBe(1);
+    // The picker took its own drawing off the page, and the click did not reach the page.
+    await expect(page.locator("[data-ui-consistency-checker]")).toHaveCount(0);
+
+    await panel.close();
+    await page.close();
+  });
+
+  test("the options page sets tolerances, the group size and report details, and lists the baselines", async () => {
+    const url = `${baseUrl}/dashboard-defects.html`;
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: "load" });
+    const tabId = await findTabId(helper, url);
+    const rules = (r: ScanResult) => r.findings.map((x) => x.ruleId);
+    const before = (await sendToBackground<ScanResult>(helper, { type: "SCAN_START", tabId, options: SCAN_OPTIONS })).data as ScanResult;
+    expect(rules(before)).toContain("LAY-04");
+
+    const options = await context.newPage();
+    await options.goto(`chrome-extension://${extensionId}/src/options/index.html`);
+    for (const heading of ["General", "Rules", "Baselines", "Import / Export", "Privacy"]) {
+      await expect(options.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    }
+
+    // A tolerance of 10px for LAY-04: the 4px misalignments are no longer reported.
+    await options.getByLabel(/Tolerance of LAY-04/).fill("10");
+    await options.getByLabel("Organisation").fill("Example Ltd");
+    await options.getByLabel("Prepared by").fill("QA team");
+    await expect.poll(async () => (await sendToBackground<{ ruleTolerances: Record<string, number> }>(helper, { type: "GET_SETTINGS" })).data?.ruleTolerances["LAY-04"]).toBe(10);
+    const loose = (await sendToBackground<ScanResult>(helper, { type: "SCAN_START", tabId, options: SCAN_OPTIONS })).data as ScanResult;
+    expect(rules(loose)).not.toContain("LAY-04");
+    expect(loose.options.tolerances).toEqual({ "LAY-04": 10 });
+    const report = (await sendToBackground<{ content: string }>(helper, { type: "EXPORT_REPORT", tabId, format: "html" })).data!;
+    expect(report.content).toContain("Example Ltd");
+    expect(report.content).toContain("QA team");
+
+    // A minimum group size of 3 drops the pairs.
+    await options.getByLabel("Minimum group size").fill("3");
+    await expect.poll(async () => (await sendToBackground<{ minGroupSize: number }>(helper, { type: "GET_SETTINGS" })).data?.minGroupSize).toBe(3);
+    const noPairs = (await sendToBackground<ScanResult>(helper, { type: "SCAN_START", tabId, options: SCAN_OPTIONS })).data as ScanResult;
+    expect(noPairs.groups.every((g) => g.members.length >= 3)).toBe(true);
+
+    // An empty tolerance goes back to the preset.
+    await options.getByLabel(/Tolerance of LAY-04/).fill("");
+    await options.getByLabel("Minimum group size").fill("2");
+    await expect.poll(async () => (await sendToBackground<{ ruleTolerances: Record<string, number>; minGroupSize: number }>(helper, { type: "GET_SETTINGS" })).data).toMatchObject({ ruleTolerances: {}, minGroupSize: 2 });
+    const again = (await sendToBackground<ScanResult>(helper, { type: "SCAN_START", tabId, options: SCAN_OPTIONS })).data as ScanResult;
+    expect(rules(again)).toEqual(rules(before));
+
+    // Baselines: a finding added to the baseline is listed for the site and can be removed.
+    const target = again.findings.find((x) => x.ruleId === "LAY-06")!;
+    await sendToBackground(helper, { type: "SET_STATUS", tabId, fingerprints: [target.fingerprint], status: "baselined", reason: "Accepted until the redesign" });
+    await options.reload();
+    const baselines = options.getByRole("region", { name: "Baselines" });
+    await expect(baselines).toContainText("LAY-06");
+    await expect(baselines).toContainText("Accepted until the redesign");
+    await baselines.getByRole("button", { name: /^Remove LAY-06/ }).click();
+    await expect(baselines).toContainText("Nothing is excluded on any site.");
+    const reopened = (await sendToBackground<ScanResult>(helper, { type: "SCAN_START", tabId, options: SCAN_OPTIONS })).data as ScanResult;
+    expect(reopened.findings.find((x) => x.ruleId === "LAY-06")?.status).toBe("new");
+
+    await options.getByLabel("Organisation").fill("");
+    await options.getByLabel("Prepared by").fill("");
+    await options.close();
+    await page.close();
+  });
+
   test("a page that cannot be scripted gives a readable error", async () => {
     // An extension cannot read the address of a chrome:// tab, so find it as "the tab that was not there before".
     const tabIds = () => helper.evaluate(async () => (await chrome.tabs.query({})).map((t) => t.id ?? -1));

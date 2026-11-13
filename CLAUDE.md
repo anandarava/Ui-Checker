@@ -46,7 +46,9 @@ PLAN.md and the table in README.md when a phase is finished.
 - `src/content/facts.ts` what the grouping and the rules both need to know about an element
 - `src/content/overlay/` what the extension draws on the page
 - `src/background/` service worker and content-script injection
-- `src/sidepanel/`, `src/options/` React UI
+- `src/sidepanel/`, `src/options/`, `src/devtools/` React UI, copied from the accessibility extension
+- `src/background/exporters/` HTML and JSON reports; `evidence.ts` takes the screenshots
+- `shared/scoring.ts` the consistency score
 - `fixtures/src/*.template.html` one template gives a `-defects` and a `-clean`
   page; never edit the generated pages in `fixtures/`
 

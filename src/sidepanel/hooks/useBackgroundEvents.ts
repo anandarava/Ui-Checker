@@ -66,6 +66,16 @@ export function useBackgroundEvents(): void {
         case "SETTINGS_CHANGED":
           void refreshSettings();
           break;
+        case "PICKED": {
+          if (raw.tabId !== store.tabId) break;
+          store.setPicking(false);
+          if (raw.selector) {
+            store.setScope({ kind: "selector", selector: raw.selector });
+            // The scope control scans the picked element right away.
+            window.dispatchEvent(new Event("ui-check:picked"));
+          }
+          break;
+        }
         case "FINDING_CLICKED": {
           // A badge on the page was clicked: open that finding.
           if (raw.tabId !== store.tabId) break;

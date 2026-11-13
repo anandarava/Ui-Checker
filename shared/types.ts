@@ -7,11 +7,11 @@
 
 export type Severity = "High" | "Medium" | "Low";
 
-/** Result tabs: Typography / Layout & spacing / Group structure / Box style. */
-export type RuleCategory = "typography" | "layout" | "group" | "box";
+/** Result tabs: Typography / Layout & spacing / Group structure / Box style / Text & content. */
+export type RuleCategory = "typography" | "layout" | "group" | "box" | "content";
 
-/** "3A" core rules are built first, "3B" is the second wave (see PLAN.md, Phase 3). */
-export type RulePhase = "3A" | "3B";
+/** "3A" core rules are built first, "3B" is the second wave (PLAN.md, Phase 3); "5" came with the page-wide audit. */
+export type RulePhase = "3A" | "3B" | "5";
 
 export type ToleranceUnit = "px" | "ratio" | "deltaE" | "exact";
 
@@ -138,6 +138,73 @@ export interface Finding {
   evidence?: Evidence;
 }
 
+/** What the design-scale audit lists (PLAN.md, Phase 5). */
+export type ScaleKind = "fontFamily" | "fontSize" | "fontWeight" | "spacing" | "color";
+
+/**
+ * Why a value of the scale stands out:
+ *  once          - used by a single element
+ *  offGrid       - a spacing value that is not a multiple of the grid the page follows
+ *  nearDuplicate - a colour that is almost another, more used colour
+ *  notToken      - not one of the team's design tokens (only when a token file is loaded)
+ */
+export type ScaleFlagKind = "once" | "offGrid" | "nearDuplicate" | "notToken";
+
+export interface ScaleFlag {
+  kind: ScaleFlagKind;
+  /** Plain-language sentence, e.g. "Close to rgb(11, 74, 143), which is used 12 times". */
+  message: string;
+}
+
+/** One value of the page's scale, with how often it is used. */
+export interface ScaleValue {
+  /** As shown: "16px", "Arial", "600", "rgb(11, 74, 143)". */
+  value: string;
+  /** Elements that use it. */
+  count: number;
+  /** Where it is used when that matters, e.g. "text 12, background 3" or "padding 8, gap 2". */
+  detail?: string;
+  /** The first few elements that use it; the page can outline all of them. */
+  samples: ElementRef[];
+  flags: ScaleFlag[];
+  /** Name of the design token it matches (only when a token file is loaded). */
+  token?: string;
+}
+
+export interface ScaleList {
+  kind: ScaleKind;
+  /** Most used first, except sizes and spacing, which go from small to large. */
+  values: ScaleValue[];
+  /** What the list was checked against, e.g. "This page follows a 4px grid (92% of the spacing values)". */
+  note?: string;
+}
+
+/** The page-wide inventory of fonts, sizes, weights, spacing and colours. */
+export interface DesignAudit {
+  lists: ScaleList[];
+  /** Name of the token file the values were checked against; absent when none is loaded. */
+  tokenFile?: string;
+}
+
+/** One design token of the team's token file, already read into a comparable value. */
+export interface DesignToken {
+  /** Path in the token file, e.g. "color.brand.primary". */
+  name: string;
+  /** Lengths in px, weights as numbers, colours as "rgb(r, g, b)", families as written. */
+  value: string | number;
+}
+
+/** The team's design tokens, by what they describe. A kind with no tokens is not checked. */
+export interface DesignTokens {
+  /** File name, shown in the UI and the reports. */
+  name: string;
+  fontFamily: DesignToken[];
+  fontSize: DesignToken[];
+  fontWeight: DesignToken[];
+  spacing: DesignToken[];
+  color: DesignToken[];
+}
+
 export interface Evidence {
   /** PNG data URL of the element, cropped, with the measurement drawn on it. */
   screenshot?: string;
@@ -187,6 +254,8 @@ export interface ScanOptions {
   minGroupSize?: number;
   /** Tolerances set for single rules, by rule id; they override the preset. */
   tolerances?: Record<string, number>;
+  /** The team's design tokens: the design scale is checked against them instead of the page's own majority. */
+  tokens?: DesignTokens | null;
 }
 
 export interface ScanResult {
@@ -209,6 +278,8 @@ export interface ScanResult {
   groups: PeerGroup[];
   findings: Finding[];
   rules: RuleResult[];
+  /** The design scale of the page (PLAN.md, Phase 5); absent in results of older scans. */
+  audit?: DesignAudit;
   /** Parts of the page the scan could not read (closed shadow roots, cross-origin frames, canvas...). */
   notScanned: string[];
   /** Things that make the measurements less reliable (fonts still loading, layout still changing). */

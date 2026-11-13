@@ -47,6 +47,8 @@ export interface StyleSnapshot {
   transform: string;
   padding: Sides;
   margin: Sides;
+  /** Sides whose margin is `auto`: the px value in `margin` is then what the layout gave, not a chosen spacing. */
+  marginAuto: Array<keyof Sides>;
   /** 0 when the gap is "normal". */
   gap: { row: number; column: number };
   borderWidth: Sides;
@@ -61,6 +63,9 @@ export interface StyleSnapshot {
   overflowY: string;
   /** "ltr" or "rtl". */
   direction: string;
+  /** "clip" or "ellipsis". */
+  textOverflow: string;
+  whiteSpace: string;
 }
 
 export type LayoutDirection = "row" | "column";
@@ -118,6 +123,14 @@ export interface ElementSnapshot {
   scrollContainer: number | null;
   /** True when the element's own content overflows it and it is not `overflow: visible`. */
   scrolls: boolean;
+  /** True when the browser shortens the element's text: an ellipsis on one line, or a clamp on several. */
+  truncated: boolean;
+  /** True when a `title`, `aria-label` or `aria-describedby` attribute on the element can hold its full text. */
+  titled: boolean;
+  /** The last characters of the element's own text (the part `text` may have cut), for typed ellipses. */
+  textTail: string;
+  /** A link that leads somewhere: an `a` with an `href`, or `role="link"`. */
+  link: boolean;
 }
 
 export interface FrameSnapshot {
@@ -142,6 +155,7 @@ export interface PageSnapshot {
 const NON_VISUAL = new Set(["script", "style", "link", "meta", "title", "head", "template", "noscript", "base", "col", "colgroup", "br", "wbr"]);
 
 const TEXT_MAX = 80;
+const TAIL_MAX = 16;
 
 function px(value: string): number {
   const n = Number.parseFloat(value);
@@ -188,8 +202,22 @@ function direction(style: CSSStyleDeclaration): LayoutDirection | null {
   return null;
 }
 
-function readStyle(style: CSSStyleDeclaration, width: number): StyleSnapshot {
+const SIDES: Array<keyof Sides> = ["top", "right", "bottom", "left"];
+
+/**
+ * The sides whose margin is `auto`. Computed style gives the px the layout
+ * resolved; the typed object model (Chromium) still says "auto".
+ */
+function autoMargins(el: Element, margin: Sides): Array<keyof Sides> {
+  if (SIDES.every((side) => margin[side] === 0)) return [];
+  const map = (el as Element & { computedStyleMap?: () => { get(name: string): unknown } }).computedStyleMap?.();
+  if (!map) return [];
+  return SIDES.filter((side) => margin[side] !== 0 && String(map.get(`margin-${side}`)) === "auto");
+}
+
+function readStyle(el: Element, style: CSSStyleDeclaration, width: number): StyleSnapshot {
   const fontFamilies = parseFontFamilies(style.fontFamily);
+  const margin = sides(style, "margin");
   return {
     fontFamily: fontFamilies[0] ?? "",
     fontFamilies,
@@ -204,7 +232,8 @@ function readStyle(style: CSSStyleDeclaration, width: number): StyleSnapshot {
     textDecorationLine: style.textDecorationLine,
     transform: style.transform || "none",
     padding: sides(style, "padding"),
-    margin: sides(style, "margin"),
+    margin,
+    marginAuto: autoMargins(el, margin),
     gap: { row: px(style.rowGap), column: px(style.columnGap) },
     borderWidth: sides(style, "border", "-width"),
     borderStyle: style.borderTopStyle,
@@ -221,6 +250,8 @@ function readStyle(style: CSSStyleDeclaration, width: number): StyleSnapshot {
     overflowX: style.overflowX || "visible",
     overflowY: style.overflowY || "visible",
     direction: style.direction || "ltr",
+    textOverflow: style.textOverflow || "clip",
+    whiteSpace: style.whiteSpace || "normal",
   };
 }
 
@@ -286,7 +317,7 @@ function closedShadowRoot(el: Element): boolean {
 }
 
 /** Reads the area of the element's own text nodes, in viewport coordinates of its document. */
-function ownText(el: Element, range: Range | null): { text: string; rect: { left: number; top: number; right: number; bottom: number } | null } {
+function ownText(el: Element, range: Range | null): { text: string; tail: string; rect: { left: number; top: number; right: number; bottom: number } | null } {
   let text = "";
   let rect: { left: number; top: number; right: number; bottom: number } | null = null;
   for (let node = el.firstChild; node; node = node.nextSibling) {
@@ -303,7 +334,7 @@ function ownText(el: Element, range: Range | null): { text: string; rect: { left
       : { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
   }
   text = text.replace(/\s+/g, " ").trim();
-  return { text: text.length > TEXT_MAX ? text.slice(0, TEXT_MAX) : text, rect };
+  return { text: text.length > TEXT_MAX ? text.slice(0, TEXT_MAX) : text, tail: text.slice(-TAIL_MAX), rect };
 }
 
 const ON = new Set(["true", "mixed"]);
@@ -320,6 +351,18 @@ function readState(el: Element): string[] {
   if (attr("aria-expanded") === "true") out.push("expanded");
   if (attr("aria-disabled") === "true" || (el as HTMLButtonElement).disabled === true) out.push("disabled");
   return out;
+}
+
+/** True when the browser cuts the element's text short: `text-overflow: ellipsis` on one line, or a line clamp. */
+function isTruncated(el: Element, style: CSSStyleDeclaration): boolean {
+  if (!overflows(style.overflowX) && !overflows(style.overflowY)) return false;
+  if (style.textOverflow === "ellipsis" && el.scrollWidth > el.clientWidth + 1) return true;
+  const clamp = style.getPropertyValue("-webkit-line-clamp");
+  return clamp !== "" && clamp !== "none" && el.scrollHeight > el.clientHeight + 1;
+}
+
+function hasFullText(el: Element): boolean {
+  return Boolean(el.getAttribute("title")?.trim() || el.getAttribute("aria-label")?.trim() || el.getAttribute("aria-describedby")?.trim());
 }
 
 function count(n: number, one: string, many: string): string {
@@ -391,7 +434,7 @@ export function takeSnapshot(root: Element, view: Window = window): PageSnapshot
         textBox: text.rect
           ? { x: text.rect.left + frame.dx, y: text.rect.top + frame.dy, width: text.rect.right - text.rect.left, height: text.rect.bottom - text.rect.top }
           : null,
-        style: readStyle(style, rect.width),
+        style: readStyle(el, style, rect.width),
         layout: {
           display: style.display,
           position: style.position || "static",
@@ -404,6 +447,10 @@ export function takeSnapshot(root: Element, view: Window = window): PageSnapshot
         clippedBy: null,
         scrollContainer: null,
         scrolls,
+        truncated: isTruncated(el, style),
+        titled: hasFullText(el),
+        textTail: text.tail,
+        link: (tag === "a" && el.hasAttribute("href")) || el.getAttribute("role") === "link",
       });
       nodes.push(el);
       if (parent.index >= 0) elements[parent.index].children.push(index);

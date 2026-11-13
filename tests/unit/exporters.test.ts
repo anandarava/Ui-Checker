@@ -82,6 +82,35 @@ describe("HTML report", () => {
     expect(html).toContain("default-src 'none'");
   });
 
+  it("lists the design scale with the values that stand out", () => {
+    const withAudit: ScanResult = {
+      ...result([]),
+      audit: {
+        lists: [
+          { kind: "fontSize", values: [{ value: "16px", count: 28, samples: [{ selector: "p.body", html: "<p>", text: "x", box: { x: 0, y: 0, width: 1, height: 1 } }], flags: [] }, { value: "14px", count: 1, samples: [], flags: [{ kind: "once", message: "Used by one element only." }] }] },
+          { kind: "color", note: "<note>", values: [{ value: "rgb(11, 74, 143)", count: 17, detail: "text 17", samples: [], flags: [], token: "color.brand" }, { value: 'red" onload="x', count: 1, samples: [], flags: [] }] },
+        ],
+      },
+    };
+    const html = buildHtmlReport(withAudit);
+    expect(html).toContain('id="h-scale"');
+    expect(html).toContain('<a href="#h-scale">Design scale</a>');
+    expect(html).toContain("Font sizes (2)");
+    expect(html).toContain("<code>p.body</code>");
+    expect(html).toContain("and 27 more");
+    expect(html).toContain("Used by one element only.");
+    expect(html).toContain("1 value stands out.");
+    expect(html).toContain("color.brand");
+    expect(html).toContain('style="background:rgb(11, 74, 143)"');
+    // Only a colour the browser computed is drawn; everything from the page is escaped.
+    expect(html).not.toContain('style="background:red');
+    expect(html).toContain("&lt;note&gt;");
+    expect(html).toContain("No design tokens were loaded");
+    expect(buildHtmlReport({ ...withAudit, audit: { ...withAudit.audit!, tokenFile: "team.tokens.json" } })).toContain("design tokens of <strong>team.tokens.json</strong>");
+    // A result of an older scan has no design scale.
+    expect(buildHtmlReport(result([]))).not.toContain('id="h-scale"');
+  });
+
   it("says so when nothing was found", () => {
     const html = buildHtmlReport(result([]));
     expect(html).toContain("Consistent: no issues found");

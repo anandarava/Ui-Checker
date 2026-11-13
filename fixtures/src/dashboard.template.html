@@ -17,8 +17,8 @@
   { "id": "D6", "rule": "LAY-07", "target": "ev-loc-1", "note": "Location item sits 3px lower than the date and time items of its row" },
   { "id": "D7", "rule": "TYP-02", "target": "who-name", "note": "Value text 22px, the other two values of the row are 17px" },
   { "id": "D8", "rule": "LAY-04", "target": "page-title", "note": "Page title starts 4px right of the card content edge" },
-  { "id": "D9", "rule": null, "target": "person-name-2", "note": "Three names are cut with a typed ' ...', the others with a CSS ellipsis" },
-  { "id": "D10", "rule": null, "via": "D5", "target": "show-all", "note": "Two link styles: 'Show All' underlined, the location link not" },
+  { "id": "D9", "rule": "TXT-03", "target": "person-name-2", "note": "Three names are cut with a typed ' ...', the others with a CSS ellipsis" },
+  { "id": "D10", "rule": "TYP-07", "review": true, "via": "D5", "target": "ev-loc-1", "note": "Two link styles on the page: 'Show All' underlined, the location link not. They are not peers, so it is listed for review" },
   { "id": "D11", "rule": "LAY-05", "target": "avatar-2", "note": "Avatar 44px, the other seven are 40px" },
   { "id": "D12", "rule": "BOX-02", "review": true, "target": "tile-1", "note": "Inner cards of two sections styled differently: event cards have a border, holiday tiles a shadow" },
   { "id": "D13", "rule": "GRP-02", "review": true, "target": "nav-home", "note": "One of three navigation items has no label" },
@@ -132,17 +132,17 @@
           </div>
           <h3 class="sub-title">Today</h3>
           <div class="people">
-            <div class="person"><span class="avatar">TB</span><div class="person-name">Tara Balakrishnan</div><div class="person-date">Nov 13</div></div>
+            <div class="person"><span class="avatar">TB</span><div class="person-name" title="Tara Balakrishnan">Tara Balakrishnan</div><div class="person-date">Nov 13</div></div>
           </div>
           <h3 class="sub-title">Next 7 days</h3>
           <div class="people">
-            <div class="person"><span class="avatar">SK</span><div class="person-name">{{#D9}}Sampath ...{{else}}Sampath Kumaran{{/D9}}</div><div class="person-date">Nov 15</div></div>
-            <div class="person"><span class="avatar" data-fx="avatar-2"{{#D11}} style="width: 44px; height: 44px"{{/D11}}>SR</span><div class="person-name" data-fx="person-name-2">{{#D9}}Sasidhar ...{{else}}Sasidhar Rangan{{/D9}}</div><div class="person-date">Nov 15</div></div>
-            <div class="person"><span class="avatar">AV</span><div class="person-name">{{#D9}}Abhishek ...{{else}}Abhishek Varma{{/D9}}</div><div class="person-date">Nov 16</div></div>
-            <div class="person"><span class="avatar">AT</span><div class="person-name">Akhil Thurairajah</div><div class="person-date">Nov 17</div></div>
-            <div class="person"><span class="avatar">KB</span><div class="person-name">Kranthi Bhaskaran</div><div class="person-date">Nov 17</div></div>
-            <div class="person"><span class="avatar">SS</span><div class="person-name">Swati Shanmugam</div><div class="person-date">Nov 17</div></div>
-            <div class="person"><span class="avatar">VM</span><div class="person-name">Vamsi Madhavan</div><div class="person-date">Nov 19</div></div>
+            <div class="person"><span class="avatar">SK</span><div class="person-name" title="Sampath Kumaran">{{#D9}}Sampath ...{{else}}Sampath Kumaran{{/D9}}</div><div class="person-date">Nov 15</div></div>
+            <div class="person"><span class="avatar" data-fx="avatar-2"{{#D11}} style="width: 44px; height: 44px"{{/D11}}>SR</span><div class="person-name" data-fx="person-name-2" title="Sasidhar Rangan">{{#D9}}Sasidhar ...{{else}}Sasidhar Rangan{{/D9}}</div><div class="person-date">Nov 15</div></div>
+            <div class="person"><span class="avatar">AV</span><div class="person-name" title="Abhishek Varma">{{#D9}}Abhishek ...{{else}}Abhishek Varma{{/D9}}</div><div class="person-date">Nov 16</div></div>
+            <div class="person"><span class="avatar">AT</span><div class="person-name" title="Akhil Thurairajah">Akhil Thurairajah</div><div class="person-date">Nov 17</div></div>
+            <div class="person"><span class="avatar">KB</span><div class="person-name" title="Kranthi Bhaskaran">Kranthi Bhaskaran</div><div class="person-date">Nov 17</div></div>
+            <div class="person"><span class="avatar">SS</span><div class="person-name" title="Swati Shanmugam">Swati Shanmugam</div><div class="person-date">Nov 17</div></div>
+            <div class="person"><span class="avatar">VM</span><div class="person-name" title="Vamsi Madhavan">Vamsi Madhavan</div><div class="person-date">Nov 19</div></div>
           </div>
         </section>
       </div>

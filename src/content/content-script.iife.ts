@@ -7,7 +7,7 @@ import { isMessage, type Message, type Response } from "@shared/messages";
 import { LOADED_FLAG } from "@shared/constants";
 import { clearOverlay, focusFinding, scrollToElement, showBadges, showGroups } from "./overlay/overlay-root";
 import { cancelPicker, startPicker } from "./picker";
-import { forgetGroups, overlayFinding, overlayFindings, overlayGroups, runScan } from "./scanner";
+import { forgetGroups, overlayFinding, overlayFindings, overlayGroups, overlayUses, runScan } from "./scanner";
 
 type Flagged = Window & { [LOADED_FLAG]?: boolean };
 
@@ -48,6 +48,23 @@ function onMessage(raw: unknown, _sender: chrome.runtime.MessageSender, sendResp
       } else {
         sendResponse({ ok: true, data: showGroups(groups) });
       }
+      return false;
+    }
+
+    case "CS_SHOW_USES": {
+      if (msg.kind === null) {
+        sendResponse({ ok: true, data: showGroups([]) });
+        return false;
+      }
+      const uses = overlayUses(msg.kind, msg.value);
+      const first = uses?.nodes.find((node) => node.isConnected);
+      if (!uses || !first) {
+        showGroups([]);
+        sendResponse({ ok: false, error: "No scan of this page to show." });
+        return false;
+      }
+      scrollToElement(first);
+      sendResponse({ ok: true, data: showGroups([uses]) });
       return false;
     }
 

@@ -310,6 +310,69 @@
       },
       "enabled": true,
       "implemented": true
+    },
+    {
+      "id": "TYP-07",
+      "name": "Link style differs",
+      "category": "typography",
+      "phase": "5",
+      "description": "Links that are styled as links do not all look the same: some are underlined and others are not, or they use different colours.",
+      "fix": "Use one style for links: the same colour, and underlined or not.",
+      "severity": "Medium",
+      "tolerance": {
+        "value": 3,
+        "unit": "deltaE"
+      },
+      "enabled": true,
+      "implemented": true
+    },
+    {
+      "id": "TXT-01",
+      "name": "Text is cut off",
+      "category": "content",
+      "phase": "5",
+      "description": "Text runs out of its box, or is cut off by it with no ellipsis to show that there is more.",
+      "fix": "Give the text room, let it wrap, or shorten it with an ellipsis and offer the full text.",
+      "severity": "Medium",
+      "tolerance": {
+        "value": 2,
+        "unit": "px"
+      },
+      "enabled": true,
+      "implemented": true
+    },
+    {
+      "id": "TXT-02",
+      "name": "Shortened text cannot be read in full",
+      "category": "content",
+      "phase": "5",
+      "description": "Text is shortened with an ellipsis and nothing on the element (a title or a label) holds the full text.",
+      "fix": "Offer the full text in a title or tooltip, or give the text room.",
+      "severity": "Medium",
+      "enabled": true,
+      "implemented": true
+    },
+    {
+      "id": "TXT-03",
+      "name": "Text shortened in different ways",
+      "category": "content",
+      "phase": "5",
+      "description": "Peer elements shorten their text in different ways: the ellipsis is typed into the text in some and added by the browser in others, or it is written differently.",
+      "fix": "Shorten every text the same way: let the browser add the ellipsis and keep the full text in the page.",
+      "severity": "Medium",
+      "enabled": true,
+      "implemented": true
+    },
+    {
+      "id": "FMT-01",
+      "name": "Value format differs",
+      "category": "content",
+      "phase": "5",
+      "description": "Values of one column or list field follow different patterns: date formats, number formats or capitalisation.",
+      "fix": "Write every value of the column or field in the same format.",
+      "severity": "Medium",
+      "enabled": true,
+      "implemented": true
     }
   ]
 }

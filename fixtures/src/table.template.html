@@ -10,15 +10,16 @@
 -->
 <script type="application/json" id="expected">[
   { "id": "D1", "rule": "GRP-01", "target": "view-toggle", "note": "Two stray round markers inside the view toggle" },
-  { "id": "D2", "rule": null, "target": "job-3", "note": "One job title is cut with a typed ' ...', the others with a CSS ellipsis" },
-  { "id": "D3", "rule": null, "target": "email-1", "note": "Truncated cells have no title attribute, so the full text cannot be read" },
+  { "id": "D2", "rule": "TXT-03", "target": "job-3", "note": "One job title is cut with a typed ' ...', the others with a CSS ellipsis" },
+  { "id": "D3", "rule": "TXT-02", "target": "email-1", "note": "Truncated cells have no title attribute, so the full text cannot be read" },
   { "id": "D4", "rule": "GRP-02", "review": true, "both": true, "target": "th-email", "note": "Sort icon on three of seven column headers (probably intentional)" },
   { "id": "D5", "rule": "LAY-04", "target": "tabs", "note": "Tab text starts 6px right of the table text column" },
   { "id": "D6", "rule": "LAY-10", "target": "btn-columns", "note": "Toolbar button 50px high, the other controls of the row are 46px" },
   { "id": "D7", "rule": "LAY-03", "target": "pager", "note": "Gap before the page numbers 90px, after them 100px" },
   { "id": "D8", "rule": "LAY-04", "target": "page-size", "note": "Page size box ends 7px inside the right edge of the table" },
   { "id": "D9", "rule": "LAY-05", "target": "avatar-4", "note": "Avatar 44px, the others are 40px" },
-  { "id": "D10", "rule": "GRP-02", "review": true, "target": "nav-org", "note": "The current navigation item has no label, the other two have one" }
+  { "id": "D10", "rule": "GRP-02", "review": true, "target": "nav-org", "note": "The current navigation item has no label, the other two have one" },
+  { "id": "D11", "rule": "FMT-01", "target": "date-7", "note": "One date of joining is written 'Oct 5, 2026', the others as 05/10/2026" }
 ]</script>
 <style>
   * { box-sizing: border-box; }
@@ -27,7 +28,7 @@
   .shell { display: flex; min-height: 100vh; }
 
   .sidebar { width: 100px; flex: none; padding-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
-  .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 70px; min-height: 64px; border-radius: 6px; color: #fff; text-decoration: none; font-size: 13px; font-weight: 600; }
+  .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 88px; min-height: 64px; border-radius: 6px; color: #fff; text-decoration: none; font-size: 13px; font-weight: 600; }
   .nav-item[aria-current] { background: #fff; color: #0b4a8f; }
   .nav-icon { width: 24px; height: 24px; border-radius: 4px; background: currentColor; }
 
@@ -121,14 +122,14 @@
         </thead>
         <tbody>
           <tr><td>2180</td><td><div class="name-cell"><span class="avatar">SC</span><a class="name-link" href="#">Sara Chandran</a></div></td><td data-fx="email-1"{{#D3}}{{else}} title="sara.chandran.longname@example.test"{{/D3}}>sara.chandran.longname@example.test</td><td>Senior Executive</td><td>Marketing</td><td>Head Office</td><td>02/11/2026</td></tr>
-          <tr><td>2179</td><td><div class="name-cell"><span class="avatar">RT</span><a class="name-link" href="#">Roopa Thomas</a></div></td><td>roopa.thomas@example.test</td><td>Associate</td><td>Marketing</td><td>Head Office</td><td>02/11/2026</td></tr>
-          <tr><td>2178</td><td><div class="name-cell"><span class="avatar">MV</span><a class="name-link" href="#">Mona Verghese</a></div></td><td>mona.verghese@example.test</td><td data-fx="job-3"{{#D3}}{{else}} title="Senior Software Engineer"{{/D3}}>{{#D2}}Senior Software ...{{else}}Senior Software Engineer{{/D2}}</td><td>.Net</td><td>Head Office</td><td>02/11/2026</td></tr>
-          <tr><td>2177</td><td><div class="name-cell"><span class="avatar" data-fx="avatar-4"{{#D9}} style="width: 44px; height: 44px"{{/D9}}>SD</span><a class="name-link" href="#">Samir Dutta</a></div></td><td>samir.dutta@example.test</td><td>Trainee</td><td>Training</td><td>Head Office</td><td>22/10/2026</td></tr>
-          <tr><td>2176</td><td><div class="name-cell"><span class="avatar">ST</span><a class="name-link" href="#">Sandeep Tiwari</a></div></td><td>sandeep.tiwari@example.test</td><td>Senior Executive</td><td>Business Development</td><td>Head Office</td><td>16/10/2026</td></tr>
+          <tr><td>2179</td><td><div class="name-cell"><span class="avatar">RT</span><a class="name-link" href="#">Roopa Thomas</a></div></td><td{{#D3}}{{else}} title="roopa.thomas@example.test"{{/D3}}>roopa.thomas@example.test</td><td>Associate</td><td>Marketing</td><td>Head Office</td><td>02/11/2026</td></tr>
+          <tr><td>2178</td><td><div class="name-cell"><span class="avatar">MV</span><a class="name-link" href="#">Mona Verghese</a></div></td><td{{#D3}}{{else}} title="mona.verghese@example.test"{{/D3}}>mona.verghese@example.test</td><td data-fx="job-3"{{#D3}}{{else}} title="Senior Software Engineer"{{/D3}}>{{#D2}}Senior Software ...{{else}}Senior Software Engineer{{/D2}}</td><td>.Net</td><td>Head Office</td><td>02/11/2026</td></tr>
+          <tr><td>2177</td><td><div class="name-cell"><span class="avatar" data-fx="avatar-4"{{#D9}} style="width: 44px; height: 44px"{{/D9}}>SD</span><a class="name-link" href="#">Samir Dutta</a></div></td><td{{#D3}}{{else}} title="samir.dutta@example.test"{{/D3}}>samir.dutta@example.test</td><td>Trainee</td><td>Training</td><td>Head Office</td><td>22/10/2026</td></tr>
+          <tr><td>2176</td><td><div class="name-cell"><span class="avatar">ST</span><a class="name-link" href="#">Sandeep Tiwari</a></div></td><td{{#D3}}{{else}} title="sandeep.tiwari@example.test"{{/D3}}>sandeep.tiwari@example.test</td><td>Senior Executive</td><td>Business Development</td><td>Head Office</td><td>16/10/2026</td></tr>
           <tr><td>2175</td><td><div class="name-cell"><span class="avatar">GR</span><a class="name-link" href="#">Gautam Rajan</a></div></td><td{{#D3}}{{else}} title="gautam.rajan.longname@example.test"{{/D3}}>gautam.rajan.longname@example.test</td><td>Senior Executive</td><td>Facility Management</td><td>Head Office</td><td>07/10/2026</td></tr>
-          <tr><td>2174</td><td><div class="name-cell"><span class="avatar">BP</span><a class="name-link" href="#">Bhavana Pillai</a></div></td><td>bhavana.pillai@example.test</td><td{{#D3}}{{else}} title="Trainee Software Engineer"{{/D3}}>Trainee Software Engineer</td><td>Training</td><td>Head Office</td><td>05/10/2026</td></tr>
-          <tr><td>2173</td><td><div class="name-cell"><span class="avatar">SV</span><a class="name-link" href="#">Swati Varghese</a></div></td><td>swati.varghese@example.test</td><td>Director</td><td>Product Management</td><td>Head Office</td><td>05/10/2026</td></tr>
-          <tr><td>2172</td><td><div class="name-cell"><span class="avatar">BD</span><a class="name-link" href="#">Brijesh Desai</a></div></td><td>brijesh.desai@example.test</td><td{{#D3}}{{else}} title="Principal Software Engineer"{{/D3}}>Principal Software Engineer</td><td>Quality Engineering</td><td>Remote</td><td>01/10/2026</td></tr>
+          <tr><td>2174</td><td><div class="name-cell"><span class="avatar">BP</span><a class="name-link" href="#">Bhavana Pillai</a></div></td><td{{#D3}}{{else}} title="bhavana.pillai@example.test"{{/D3}}>bhavana.pillai@example.test</td><td{{#D3}}{{else}} title="Trainee Software Engineer"{{/D3}}>Trainee Software Engineer</td><td>Training</td><td>Head Office</td><td data-fx="date-7">{{#D11}}Oct 5, 2026{{else}}05/10/2026{{/D11}}</td></tr>
+          <tr><td>2173</td><td><div class="name-cell"><span class="avatar">SV</span><a class="name-link" href="#">Swati Varghese</a></div></td><td{{#D3}}{{else}} title="swati.varghese@example.test"{{/D3}}>swati.varghese@example.test</td><td>Director</td><td>Product Management</td><td>Head Office</td><td>05/10/2026</td></tr>
+          <tr><td>2172</td><td><div class="name-cell"><span class="avatar">BD</span><a class="name-link" href="#">Brijesh Desai</a></div></td><td{{#D3}}{{else}} title="brijesh.desai@example.test"{{/D3}}>brijesh.desai@example.test</td><td{{#D3}}{{else}} title="Principal Software Engineer"{{/D3}}>Principal Software Engineer</td><td>Quality Engineering</td><td>Remote</td><td>01/10/2026</td></tr>
         </tbody>
       </table>
 

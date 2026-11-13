@@ -19,7 +19,7 @@
   { "id": "D5", "rule": "LAY-04", "target": "card-chart", "note": "Left edges inside one card at 21, 27, 21 and 15px" },
   { "id": "D6", "rule": "TYP-04", "target": "row-wrapped", "note": "Wrapped list row has a tighter line height than the other rows, and its chevron is not centred" },
   { "id": "D7", "rule": null, "review": true, "target": "status-list", "note": "Status rows use 20px text, every other list on the page uses 16px" },
-  { "id": "D8", "rule": null, "target": "event-1", "note": "Truncated names end in three different ways" },
+  { "id": "D8", "rule": "TXT-03", "target": "event-1", "note": "Truncated names end in three different ways" },
   { "id": "D9", "rule": "LAY-10", "target": "help-btn", "note": "Header controls of different heights: search 45px, button 33px" },
   { "id": "D10", "rule": "GRP-02", "review": true, "both": true, "target": "nav-first", "note": "Chevron on seven of thirteen navigation items: the ones that open a sub-menu (intentional)" }
 ]</script>
@@ -169,11 +169,11 @@
             <colgroup><col style="width: 50%"><col style="width: 30%"><col style="width: 20%"></colgroup>
             <thead><tr><th scope="col">Event Name</th><th scope="col">Certification Period</th><th scope="col">Completed</th></tr></thead>
             <tbody>
-              <tr><td data-fx="event-1">{{#D8}}Automated_EventXv0qrZ3v - ...{{else}}Automated_EventXv0qrZ3v - Annual attestation for all staff{{/D8}}</td><td>Jun 2 - Jun 4</td><td>0%</td></tr>
-              <tr><td>{{#D8}}Automated_EventwOpRUniW ...{{else}}Automated_EventwOpRUniW - Annual attestation for all staff{{/D8}}</td><td>Jun 4 - Jun 10</td><td>0%</td></tr>
-              <tr><td>{{#D8}}Automated_EventlFNQLplv - ...{{else}}Automated_EventlFNQLplv - Annual attestation for all staff{{/D8}}</td><td>Jun 3 - Jun 11</td><td>0%</td></tr>
-              <tr><td>Automated_Eventhge4zbIF - Annual attestation for all staff</td><td>Jun 2 - Jun 14</td><td>0%</td></tr>
-              <tr><td>Automated_EventHeELyjrA - Annual attestation for all staff</td><td>Jun 4 - Jun 14</td><td>0%</td></tr>
+              <tr><td data-fx="event-1" title="Automated_EventXv0qrZ3v - Annual attestation for all staff">{{#D8}}Automated_EventXv0qrZ3v - ...{{else}}Automated_EventXv0qrZ3v - Annual attestation for all staff{{/D8}}</td><td>Jun 2 - Jun 4</td><td>0%</td></tr>
+              <tr><td title="Automated_EventwOpRUniW - Annual attestation for all staff">{{#D8}}Automated_EventwOpRUniW ...{{else}}Automated_EventwOpRUniW - Annual attestation for all staff{{/D8}}</td><td>Jun 4 - Jun 10</td><td>0%</td></tr>
+              <tr><td title="Automated_EventlFNQLplv - Annual attestation for all staff">{{#D8}}Automated_EventlFNQLplv - A...{{else}}Automated_EventlFNQLplv - Annual attestation for all staff{{/D8}}</td><td>Jun 3 - Jun 11</td><td>0%</td></tr>
+              <tr><td title="Automated_Eventhge4zbIF - Annual attestation for all staff">Automated_Eventhge4zbIF - Annual attestation for all staff</td><td>Jun 2 - Jun 14</td><td>0%</td></tr>
+              <tr><td title="Automated_EventHeELyjrA - Annual attestation for all staff">Automated_EventHeELyjrA - Annual attestation for all staff</td><td>Jun 4 - Jun 14</td><td>0%</td></tr>
             </tbody>
           </table>
           <a class="more" href="#">View more</a>

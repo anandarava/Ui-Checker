@@ -16,10 +16,11 @@ extension, so testers who know one already know the other.
 
 ## Status
 
-**Phases 0 to 4 are done.** The scan measures every visible element of the
+**Phases 0 to 5 are done.** The scan measures every visible element of the
 page, finds the *peer groups* (the elements that should look the same) and runs
-**all 22 rules** on them: typography, layout and spacing, group structure and
-box style. Differences that are often intentional (a colour on its own, a
+**all 27 rules** on them: typography, layout and spacing, group structure, box
+style, and text and content (cut-off and shortened text, value formats, link
+style). Differences that are often intentional (a colour on its own, a
 featured card, a sort icon on some columns) are listed for review instead of as
 defects.
 
@@ -27,7 +28,15 @@ The side panel shows a consistency score, the issues by rule and each issue
 with what was expected and what was found; it draws the issue, its peers and
 the measurement on the page. Issues can be ignored, marked intentional or
 added to a baseline, with a reason. Reports are exported as HTML (with
-screenshots) or JSON. See [PLAN.md](PLAN.md) for the phases.
+screenshots) or JSON.
+
+The **Design scale** tab lists the fonts, sizes, spacing values and colours of
+the page with how often each is used, outlines every use of a value on the
+page, and marks the values that stand out: used once, off the spacing grid the
+page follows, or almost the same as another colour. Load your team's design
+tokens (Figma tokens or any design-token JSON) on the options page and the
+values are checked against the tokens instead. See [PLAN.md](PLAN.md) for the
+phases.
 
 | Phase | What | Status |
 |---|---|---|
@@ -37,8 +46,8 @@ screenshots) or JSON. See [PLAN.md](PLAN.md) for the phases.
 | 3A | Consistency rules: the ten core rules | Done |
 | 3B | Consistency rules: second wave | Done |
 | 4 | Results UI and reports | Done |
-| 5 | Page-wide design-scale audit | Next |
-| 6 | Site scan, CI package, cross-page checks | |
+| 5 | Page-wide design-scale audit | Done |
+| 6 | Site scan, CI package, cross-page checks | Next |
 | 7 | AI assist (optional, off by default) | |
 
 ## Run it
@@ -75,7 +84,8 @@ npm run fixtures        # serves the fixtures at http://127.0.0.1:4174/
 ## Project layout
 
 ```
-shared/            Data model, message contract and the rule catalogue (ui-rules.json).
+shared/            Data model, message contract, the rule catalogue (ui-rules.json) and
+                   the design-token reader (tokens.ts).
                    Shared by the extension, the reports and CI.
 src/background/    Service worker: injects the content script, starts scans, keeps results
                    and the ignored and baselined findings, builds the reports
@@ -88,6 +98,7 @@ src/content/       Runs in the page. scanner.ts is the scan pipeline
 src/sidepanel/     The side panel (React).
 src/options/       The options page: tolerances, rules, baselines, import and export.
 src/devtools/      The same panel as a DevTools panel.
+fixtures/tokens/   A sample design-token file for the dashboard fixture.
 fixtures/src/      Fixture templates. One template gives a "defects" and a "clean" page.
 fixtures/          Generated fixture pages. Do not edit by hand.
 tests/unit/        Vitest.

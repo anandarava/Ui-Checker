@@ -7,6 +7,8 @@ import { build } from "esbuild";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { RuleDef, ScanOptions, TolerancePreset } from "@shared/types";
+import type { DesignTokens, ScaleFlag } from "@shared/types";
+import type { RawScaleList } from "@src/content/audit";
 import type { RawGroup } from "@src/content/grouping";
 import type { RawFinding, RuleRun } from "@src/content/rules";
 import type { ElementSnapshot, PageSnapshot } from "@src/content/snapshot";
@@ -22,6 +24,8 @@ interface Engine {
   takeSnapshot(root: Element): PageSnapshot;
   findPeerGroups(elements: ElementSnapshot[]): RawGroup[];
   runRules(elements: ElementSnapshot[], groups: RawGroup[], options: ScanOptions, ruleIds: string[]): RuleRun;
+  buildAudit(elements: ElementSnapshot[], tokens?: DesignTokens | null): RawScaleList[];
+  parseTokens(text: string, name: string): DesignTokens;
   RULES: RuleDef[];
 }
 
@@ -30,7 +34,7 @@ let bundle: Promise<string> | null = null;
 function engineScript(): Promise<string> {
   bundle ??= build({
     stdin: {
-      contents: `export * from "./snapshot"; export * from "./grouping"; export * from "./rules"; export { RULES } from "@shared/rules";`,
+      contents: `export * from "./snapshot"; export * from "./grouping"; export * from "./rules"; export * from "./audit"; export { RULES } from "@shared/rules"; export { parseTokens } from "@shared/tokens";`,
       resolveDir: path.join(ROOT, "src/content"),
       loader: "ts",
     },
@@ -134,4 +138,49 @@ export async function findFindings(page: Page, preset: TolerancePreset = "normal
     const expected = JSON.parse(document.getElementById("expected")?.textContent ?? "[]");
     return { findings, expected, checked: Object.fromEntries(run.checked), durationMs };
   }, preset);
+}
+
+export interface AuditValue {
+  value: string;
+  /** Elements that use the value. */
+  count: number;
+  flags: ScaleFlag[];
+  token?: string;
+  detail?: string;
+  /** data-fx names of the elements that use the value or that they sit in, sorted. */
+  within: string[];
+}
+
+export interface AuditList {
+  kind: string;
+  note?: string;
+  values: AuditValue[];
+}
+
+/** The design scale of the page, by kind; `tokens` is a token file to check it against. */
+export async function findAudit(page: Page, tokens: { name: string; text: string } | null = null): Promise<Record<string, AuditList>> {
+  await addEngine(page);
+  return page.evaluate((file) => {
+    const api = (window as unknown as { UICheckEngine: Engine }).UICheckEngine;
+    const snapshot = api.takeSnapshot(document.body);
+    const lists = api.buildAudit(snapshot.elements, file ? api.parseTokens(file.text, file.name) : null);
+    const out: Record<string, AuditList> = {};
+    for (const list of lists) {
+      out[list.kind] = {
+        kind: list.kind,
+        ...(list.note ? { note: list.note } : {}),
+        values: list.values.map((v) => {
+          const within = new Set<string>();
+          for (const i of v.elements) {
+            for (let node: Element | null = snapshot.nodes[i]; node; node = node.parentElement) {
+              const fx = node.getAttribute("data-fx");
+              if (fx) within.add(fx);
+            }
+          }
+          return { value: v.value, count: v.elements.length, flags: v.flags, ...(v.token ? { token: v.token } : {}), ...(v.detail ? { detail: v.detail } : {}), within: [...within].sort() };
+        }),
+      };
+    }
+    return out;
+  }, tokens);
 }

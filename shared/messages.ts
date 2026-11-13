@@ -10,7 +10,7 @@
  * Every message carries `type` and, where relevant, `tabId` so the side panel
  * (one per window) can ignore events from other tabs.
  */
-import type { ExportFormat, FindingStatus, ScanOptions, ScanResult } from "./types";
+import type { ExportFormat, FindingStatus, ScaleKind, ScanOptions, ScanResult } from "./types";
 
 export type Message =
   // ---- Scanning ----
@@ -24,6 +24,8 @@ export type Message =
   | { type: "CS_SCAN"; tabId: number; options: ScanOptions }
   /** Outline peer groups of the last scan on the page: null = all, [] = none. Answers with the number of boxes drawn. */
   | { type: "CS_SHOW_GROUPS"; tabId: number; groupIds: string[] | null }
+  /** Outline every element that uses a value of the design scale and scroll to the first; kind null removes the outlines. Answers with the number of boxes drawn. */
+  | { type: "CS_SHOW_USES"; tabId: number; kind: ScaleKind | null; value: string }
   /** Draw numbered badges on the elements of these findings of the last scan: null = all, [] = none. */
   | { type: "CS_SHOW_BADGES"; tabId: number; findingIds: string[] | null }
   /** Scroll to a finding and draw its element, its peers and what was measured; null removes it. */

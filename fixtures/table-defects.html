@@ -17,13 +17,13 @@
   },
   {
     "id": "D2",
-    "rule": null,
+    "rule": "TXT-03",
     "target": "job-3",
     "note": "One job title is cut with a typed ' ...', the others with a CSS ellipsis"
   },
   {
     "id": "D3",
-    "rule": null,
+    "rule": "TXT-02",
     "target": "email-1",
     "note": "Truncated cells have no title attribute, so the full text cannot be read"
   },
@@ -71,6 +71,12 @@
     "review": true,
     "target": "nav-org",
     "note": "The current navigation item has no label, the other two have one"
+  },
+  {
+    "id": "D11",
+    "rule": "FMT-01",
+    "target": "date-7",
+    "note": "One date of joining is written 'Oct 5, 2026', the others as 05/10/2026"
   }
 ]</script>
 <style>
@@ -80,7 +86,7 @@
   .shell { display: flex; min-height: 100vh; }
 
   .sidebar { width: 100px; flex: none; padding-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
-  .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 70px; min-height: 64px; border-radius: 6px; color: #fff; text-decoration: none; font-size: 13px; font-weight: 600; }
+  .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 88px; min-height: 64px; border-radius: 6px; color: #fff; text-decoration: none; font-size: 13px; font-weight: 600; }
   .nav-item[aria-current] { background: #fff; color: #0b4a8f; }
   .nav-icon { width: 24px; height: 24px; border-radius: 4px; background: currentColor; }
 
@@ -179,7 +185,7 @@
           <tr><td>2177</td><td><div class="name-cell"><span class="avatar" data-fx="avatar-4" style="width: 44px; height: 44px">SD</span><a class="name-link" href="#">Samir Dutta</a></div></td><td>samir.dutta@example.test</td><td>Trainee</td><td>Training</td><td>Head Office</td><td>22/10/2026</td></tr>
           <tr><td>2176</td><td><div class="name-cell"><span class="avatar">ST</span><a class="name-link" href="#">Sandeep Tiwari</a></div></td><td>sandeep.tiwari@example.test</td><td>Senior Executive</td><td>Business Development</td><td>Head Office</td><td>16/10/2026</td></tr>
           <tr><td>2175</td><td><div class="name-cell"><span class="avatar">GR</span><a class="name-link" href="#">Gautam Rajan</a></div></td><td>gautam.rajan.longname@example.test</td><td>Senior Executive</td><td>Facility Management</td><td>Head Office</td><td>07/10/2026</td></tr>
-          <tr><td>2174</td><td><div class="name-cell"><span class="avatar">BP</span><a class="name-link" href="#">Bhavana Pillai</a></div></td><td>bhavana.pillai@example.test</td><td>Trainee Software Engineer</td><td>Training</td><td>Head Office</td><td>05/10/2026</td></tr>
+          <tr><td>2174</td><td><div class="name-cell"><span class="avatar">BP</span><a class="name-link" href="#">Bhavana Pillai</a></div></td><td>bhavana.pillai@example.test</td><td>Trainee Software Engineer</td><td>Training</td><td>Head Office</td><td data-fx="date-7">Oct 5, 2026</td></tr>
           <tr><td>2173</td><td><div class="name-cell"><span class="avatar">SV</span><a class="name-link" href="#">Swati Varghese</a></div></td><td>swati.varghese@example.test</td><td>Director</td><td>Product Management</td><td>Head Office</td><td>05/10/2026</td></tr>
           <tr><td>2172</td><td><div class="name-cell"><span class="avatar">BD</span><a class="name-link" href="#">Brijesh Desai</a></div></td><td>brijesh.desai@example.test</td><td>Principal Software Engineer</td><td>Quality Engineering</td><td>Remote</td><td>01/10/2026</td></tr>
         </tbody>

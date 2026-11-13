@@ -5,7 +5,7 @@ describe("rule catalogue", () => {
   it("has unique, well-formed ids", () => {
     const ids = RULES.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const id of ids) expect(id).toMatch(/^(TYP|LAY|GRP|BOX)-\d{2}$/);
+    for (const id of ids) expect(id).toMatch(/^(TYP|LAY|GRP|BOX|TXT|FMT)-\d{2}$/);
   });
 
   it("gives every rule a name, a description, a fix and a known category", () => {
@@ -19,13 +19,17 @@ describe("rule catalogue", () => {
   });
 
   it("puts the id prefix and the category in step", () => {
-    const prefix = { typography: "TYP", layout: "LAY", group: "GRP", box: "BOX" } as const;
-    for (const rule of RULES) expect(rule.id.startsWith(prefix[rule.category]), rule.id).toBe(true);
+    const prefix = { typography: ["TYP"], layout: ["LAY"], group: ["GRP"], box: ["BOX"], content: ["TXT", "FMT"] } as const;
+    for (const rule of RULES) expect(prefix[rule.category].some((p) => rule.id.startsWith(p)), rule.id).toBe(true);
   });
 
   it("marks exactly the core rules of the plan as phase 3A", () => {
     const core = RULES.filter((r) => r.phase === "3A").map((r) => r.id).sort();
     expect(core).toEqual(["LAY-01", "LAY-02", "LAY-03", "LAY-04", "LAY-05", "LAY-06", "TYP-01", "TYP-02", "TYP-03", "TYP-05"]);
+  });
+
+  it("marks the rules of the page-wide audit as phase 5", () => {
+    expect(RULES.filter((r) => r.phase === "5").map((r) => r.id).sort()).toEqual(["FMT-01", "TXT-01", "TXT-02", "TXT-03", "TYP-07"]);
   });
 
   it("uses positive tolerances, and ratios above 1", () => {

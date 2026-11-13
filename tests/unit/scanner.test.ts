@@ -60,6 +60,22 @@ describe("runScan", () => {
     expect(Number.isNaN(Date.parse(result.scannedAt))).toBe(false);
   });
 
+  it("lists the design scale of the page, with the elements that use each value", async () => {
+    document.body.innerHTML = `<div><p style="font-size:16px; padding-left:8px">a</p><p style="font-size:16px; padding-left:8px">b</p><p style="font-size:18px">c</p></div>`;
+    const result = await runScan(OPTIONS);
+    expect(result.audit?.lists.map((l) => l.kind)).toEqual(["fontFamily", "fontSize", "fontWeight", "spacing", "color"]);
+    const sizes = result.audit!.lists[1].values;
+    expect(sizes.map((v) => [v.value, v.count])).toEqual([["16px", 2], ["18px", 1]]);
+    expect(sizes[0].samples.map((s) => s.selector)).toEqual(["p:nth-of-type(1)", "p:nth-of-type(2)"]);
+    expect(sizes[1].flags.map((f) => f.kind)).toEqual(["once"]);
+    expect(result.audit!.tokenFile).toBeUndefined();
+
+    const tokens = { name: "team.json", fontFamily: [], fontSize: [{ name: "size.body", value: 16 }], fontWeight: [], spacing: [], color: [] };
+    const checked = await runScan({ ...OPTIONS, tokens });
+    expect(checked.audit!.tokenFile).toBe("team.json");
+    expect(checked.audit!.lists[1].values.map((v) => [v.value, v.token ?? null, v.flags.map((f) => f.kind)])).toEqual([["16px", "size.body", []], ["18px", null, ["notToken"]]]);
+  });
+
   it("never reports a rule as passed before its check exists", async () => {
     const result = await runScan(OPTIONS);
     for (const rule of RULES.filter((r) => !r.implemented)) {

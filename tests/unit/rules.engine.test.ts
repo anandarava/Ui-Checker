@@ -504,6 +504,6 @@ describe("second wave: group structure and box style", () => {
 
   it("every rule of the catalogue has a check", () => {
     expect(RULES.every((r) => r.implemented)).toBe(true);
-    expect(RULES).toHaveLength(22);
+    expect(RULES).toHaveLength(27);
   });
 });

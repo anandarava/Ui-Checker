@@ -250,7 +250,7 @@ Noise removed after the first run on the real-site list (220 findings then): gap
 
 TYP-04, TYP-06, LAY-07 to LAY-10, GRP-01 to GRP-03, BOX-01 to BOX-03.
 
-**Status: done.** All 22 rules of the catalogue are built (`src/content/rules/`), and none is reported as "not built" any more.
+**Status: done.** All 22 rules of Phase 3 are built (`src/content/rules/`), and none is reported as "not built" any more.
 
 - **Seeded defects:** every remaining defect is reported on the defect fixtures, by its rule and on the element the fixture names: as a definite finding, or for review where the fixture marks the difference as intentional. With Phase 3A that is every seeded defect that has a rule; the ones without a rule belong to Phase 5.
 - **Clean fixtures:** no definite finding under the strict, normal and relaxed presets. The only findings there are the two the fixtures list as intentional, for review: the sort icon on three of seven column headers, and the chevron on seven of thirteen navigation items.
@@ -317,6 +317,15 @@ Noise removed after the first run on the real-site list: underlines under links 
 | BOX-02 | Shadow or border style differs |
 | BOX-03 | Background differs |
 
+### Text and content (added in Phase 5)
+| ID | Check |
+|---|---|
+| TYP-07 | Link style differs (underline, colour) |
+| TXT-01 | Text is cut off or runs out of its box |
+| TXT-02 | Shortened text cannot be read in full |
+| TXT-03 | Text shortened in different ways |
+| FMT-01 | Value format differs in one column or list field |
+
 **Severity:** High = most members agree and one or two differ clearly (strong outlier). Medium = small differences or a near-even split. Low = the difference may be intentional.
 
 **Done when (3A):** every seeded defect covered by the core rules is found in all defect fixtures, and the clean fixtures give no findings.
@@ -368,6 +377,69 @@ Build everything in **Look and feel** above, by copying the accessibility extens
 ## Phase 5: Page-wide design-scale audit
 
 **Size:** M
+
+**Status: done.** Two parts: a **design-scale audit** of the whole page, and **five new rules** about text. The catalogue now has 27 rules, all built.
+
+### The design-scale audit (`src/content/audit.ts`)
+
+A new **Design scale** tab in the panel and a section of the HTML report list the font families, font sizes, font weights, spacing values (padding, margin, gap) and colours (text, background, border) of the page, each with the number of elements that use it. Selecting a value outlines **every** element that uses it on the page and scrolls to the first.
+
+A value that stands out is marked:
+
+| Mark | When |
+|---|---|
+| Used once | A font size or spacing value used by a single element |
+| Off the grid | A spacing value that is not a multiple of 4 px, **only when the page follows a 4 px grid** (75% or more of its spacing is on it). A page that follows no grid gets a note instead of a mark on every value |
+| Near-duplicate | A colour within Delta E 5 of a more used colour |
+| Not a token | Only with a token file: the value is not one of the team's tokens; the closest token is named |
+
+These marks are **observations about the whole page, not findings**: they are not counted as issues, do not change the score and cannot be ignored or baselined. A page title is the only text of its size on every page, so "used once" as a finding would break the rule that clean fixtures give no definite finding.
+
+**Design tokens** (`shared/tokens.ts`): a token file is loaded on the options page (section "Design tokens") and kept in this browser. Understood: the Design Tokens Community Group format (`$value`, `$type`, inherited types), Tokens Studio for Figma and Style Dictionary (`value`, `type`, token sets), plain nested objects, aliases (`{color.brand.primary}`) and composite typography tokens. Colours are read from hex, rgb() and hsl(); lengths from px, rem and plain numbers. With tokens loaded, a kind of value the file has tokens for is checked against the tokens **instead of** the page; a kind it has none for is still judged against the page. A sample file is in `fixtures/tokens/dashboard.tokens.json`.
+
+### The new rules (`src/content/rules/content.ts`)
+
+| ID | Check | Result |
+|---|---|---|
+| TYP-07 | Link style: links that are peers (a menu, the name links of a column) and are underlined differently | Definite |
+| TYP-07 | Link style: the other links of the page that are styled as links, compared by where they sit (in a sentence or on their own, and on which background): underline, and a colour one or two links have | Needs review: they are not peers |
+| TXT-01 | Text cut off by its own box with no ellipsis, or running out of the box it is drawn in | Definite; cut off at the bottom is Needs review |
+| TXT-02 | Text the browser shortens (ellipsis or line clamp) with no `title`, `aria-label` or `aria-describedby` on it, its wrapper or its content | Definite; Needs review inside a link or button |
+| TXT-03 | Peers that shorten their text differently: an ellipsis typed into the text where the others are shortened by the browser, or typed ellipses written differently ("...", "…", with a space, after a dangling separator) | Definite |
+| FMT-01 | Values of one column or list field in different formats: dates and times | Definite |
+| FMT-01 | Numbers: one unit written two ways ("5%" and "5 %"), "1,000" against "1000"; a single lower-case label among capitalised values | Needs review |
+
+Checked:
+
+- **Seeded defects:** the ones that were waiting for this phase are now found on the element the fixture names: inconsistent ellipsis on the dashboard, the table and the compliance page (TXT-03), truncated cells without a title (TXT-02), the two link styles of the dashboard (TYP-07, for review). A new seeded defect covers value formats: one date of joining written "Oct 5, 2026" among "05/10/2026" (FMT-01, table D11).
+- **Clean fixtures:** still no definite finding under the strict, normal and relaxed presets.
+- **Audit:** on the clean dashboard it lists exactly the values of the fixture's stylesheet (9 font sizes, 3 weights, 15 spacing values, 8 colours). With the sample token file every value of the clean dashboard is a token; on the defects page the five spacing values the seeded defects bring in (19, 29, 39, 50, 68 px) are "not a token".
+- **Tests:** 171 unit tests and 77 browser tests pass. The panel tab and the outlines on the page were also looked at as screenshots.
+- **Real-site list (20 pages):** the new rules give 32 findings, 13 of them for review: TXT-02 22 (12 definite, all the cells of one table demo that are truly cut), TXT-03 5 (commit messages cut with a typed "…" next to ones cut by the browser), TYP-07 3, FMT-01 2, TXT-01 0. The first run gave 110; the noise removed is listed below. As in Phase 3, the findings have been read but **not judged one by one** against the "at least 70% accepted" target.
+
+Changes outside the new code:
+
+- **Snapshot:** each element now records whether the browser shortens its text, whether a title or label can hold its full text, the end of its text, whether it is a link, and which of its margins are `auto` (the px of an `auto` margin are what the layout had left over, not a spacing value).
+- **Fixtures, unseeded issues the new rules found in both variants** (the same way the table header and the compliance columns were fixed in Phase 3):
+  - Dashboard: the people names are shortened by their box and had no title. They now carry one.
+  - Compliance: the event names are shortened by the table and had no title. They now carry one.
+  - Table: every email is shortened by its column, not only the two long ones that had a title; the clean page now titles all of them. The current navigation item was 3 px too narrow for its label, which ran out of its white box; it is now 88 px wide.
+  - Compliance D8: the third event name now ends in " - A...", so the three names end in three different ways, as Appendix D says.
+- **Dashboard D10** (two link styles) now names the location link and is marked for review: "Show All" and the location link are not peers, so there is no telling which style is meant.
+
+Noise removed after the first run on the real-site list: capitalisation of link and button labels (names of pages, commands and terms), names with their own capitals ("jQuery"), the number of decimals in a column ("4" and "3.7"), which unit a number has, the colour of links that are peers (TYP-05 already compares it), a link colour many links share (links to missing pages), visually hidden skip links reported as cut off, and the menu item that looks like the current one.
+
+Not done, or not checked:
+
+- **Compliance D7** (status rows in 20 px, every other list in 16 px) has **no rule**. The audit lists 20 px with its elements, but nothing says "this list is larger than the other lists". It needs a comparison between unrelated groups, which is not built.
+- **Capitalisation** is only compared in one narrow case (one lower-case value among capitalised ones, not on links or buttons). "Title Case" against "Sentence case" is not compared: names make it unreliable.
+- **Dates and times** are recognised in English and numeric forms only. A date with a month name in another language is read as text and not compared.
+- **TXT-02** cannot see a tooltip that a script shows on hover; the finding says so and can be marked intentional.
+- **Border colours** are read from the top border only, so the colour of a border on one other side is not in the colour list.
+- **Radii, shadows, line heights and letter spacing** are not in the audit, and such tokens are skipped.
+- **Click-through** outlines all uses and scrolls to the first; there is no "next use" stepper. The panel and the report show the first three elements of each value.
+- The token file is **not included** in "Export settings and baselines".
+- The audit marks are not part of the JSON report's findings; the JSON report has the whole audit under `audit`.
 
 - Inventory of font families, font sizes, weights, spacing values and colours, with usage counts and a click-through to each use.
 - Flag sizes or spacing values used only once, values off a 4/8 px grid, and near-duplicate colours (e.g. two blues within ΔE 5).
@@ -442,8 +514,8 @@ Taken from the reference screenshot.
 6. Location text lower than date and time text (LAY-07). In the fixture, seed this at 3 px so it is above the 2 px tolerance; the 1–2 px seen in the screenshot is below it and would not be reported
 7. My Details: name 22 px vs other values 17 px; label/value order inverted; column tops misaligned (TYP-02, LAY-04)
 8. "Dashboard" page title 4 px off the card content edge (LAY-04)
-9. Inconsistent ellipsis on people names (Phase 5)
-10. "Show All" underlined vs "PJR Stadium" not underlined (Phase 5)
+9. Inconsistent ellipsis on people names (TXT-03)
+10. "Show All" underlined vs "PJR Stadium" not underlined (TYP-07, needs review: the two links are not peers)
 11. One avatar larger than the others (LAY-05)
 12. Event cards white with border vs holiday tiles grey with shadow (BOX-02, low)
 13. Sidebar: Home without label, Me and Organization with labels (structure, low)
@@ -474,8 +546,8 @@ Fixture `fixtures/table-defects.html` and `table-clean.html`. A different page t
 
 **Seeded defects:**
 1. View toggle group contains two stray round markers (a black dot and an orange ring) that don't match the toggle buttons (GRP-01)
-2. Ellipsis inconsistent: "Senior Software …" (space before) vs "Trainee Software…" and "Principal Softwa…" (Phase 5)
-3. Truncated emails and job titles: check that the full text is available (tooltip) (Phase 5)
+2. Ellipsis inconsistent: "Senior Software …" (space before) vs "Trainee Software…" and "Principal Softwa…" (TXT-03)
+3. Truncated emails and job titles: check that the full text is available (tooltip) (TXT-02)
 4. Sort icon on Employee ID, Name and Date of Joining only (GRP-02, needs review: probably intentional)
 5. Tab text "Employees Directory" starts about 6 px right of the table text column (x 146 vs 140) (LAY-04)
 6. Toolbar controls slightly different heights (Customize Columns vs Filter vs view toggle) (LAY-10)
@@ -483,6 +555,7 @@ Fixture `fixtures/table-defects.html` and `table-clean.html`. A different page t
 8. Page Size box right edge about 7 px inside the table's right edge (LAY-04)
 9. Avatars: photos vs one initials badge ("BD"); check equal size (LAY-05; the initials badge itself is a normal fallback)
 10. Sidebar: active item (Organization) has no label while Home and Me do (GRP-02); the same pattern on the dashboard is a cross-page check (Phase 6)
+11. One date of joining written "Oct 5, 2026", the others as 05/10/2026 (FMT-01; added in Phase 5, not in the reference screenshot)
 
 **Checks that should pass (not flagged):** row heights equal; column header and cell left edges aligned; header text style the same on all columns; date format the same in every row; table and search box left edges aligned.
 
@@ -501,8 +574,8 @@ Fixture `fixtures/compliance-defects.html` and `compliance-clean.html`. **Copy t
 4. Gaps between cards: left column about 21 px then 17 px; right column about 35 px (LAY-03)
 5. Trade Rule Violations card: inner left edges at about 21 / 27 / 21 / 15 px (title, period dropdown, tabs, green box) (LAY-04)
 6. List row "33 SMCR Certification Section Ready to Complete" wraps to 2 lines with a tighter line height than the other rows; its chevron is not centred on the text (TYP-04, LAY-07)
-7. Status rows text about 20 px, larger than every other list on the page (about 16 px) (Phase 5 size scale; needs review)
-8. Truncated event names end in three different ways: " - ...", " ..." and " - A..." (Phase 5)
+7. Status rows text about 20 px, larger than every other list on the page (about 16 px) (no rule: the design-scale audit lists the size and where it is used)
+8. Truncated event names end in three different ways: " - ...", " ..." and " - A..." (TXT-03)
 9. Header controls different heights: search about 45 px vs "Need Help?" about 33 px (LAY-10)
 
 **Checks that should pass:** stat card numbers same size and colour; stat card label spacing; left edges of left-column cards; right edges of right-column cards; status row heights; table row heights; Company/Personal toggle halves equal width.

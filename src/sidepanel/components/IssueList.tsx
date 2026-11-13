@@ -3,6 +3,7 @@ import { CATEGORY_LABEL, getRule } from "@shared/rules";
 import type { Finding, Severity } from "@shared/types";
 import { DEFAULT_FILTERS, failedRules, isNeedsReviewIssue, issueNumbers, matchesFilters, severityRank, useStore } from "@src/sidepanel/store";
 import { PeerGroups } from "./PeerGroups";
+import { DesignScale } from "./DesignScale";
 import { SeverityBadge, StatusLabel } from "./SeverityLabel";
 import { ChevronDownIcon, ChevronRightIcon, InfoCircleIcon, LightbulbIcon } from "./icons";
 
@@ -62,7 +63,7 @@ export function IssueList({ onOpen }: { onOpen(issueId: string): void }) {
   const numbers = useMemo(() => issueNumbers(result), [result]);
 
   const groups = useMemo<Group[]>(() => {
-    if (!result || tab === "failed" || tab === "passed" || tab === "groups") return [];
+    if (!result || tab === "failed" || tab === "passed" || tab === "groups" || tab === "scale") return [];
     const byRule = new Map<string, Finding[]>();
     for (const issue of result.findings) {
       if (!matchesFilters(issue, filters, tab)) continue;
@@ -92,6 +93,14 @@ export function IssueList({ onOpen }: { onOpen(issueId: string): void }) {
     return (
       <section id="result-tabpanel" role="tabpanel" aria-labelledby="result-tab-groups" className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-2">
         <PeerGroups result={result} />
+      </section>
+    );
+  }
+
+  if (tab === "scale") {
+    return (
+      <section id="result-tabpanel" role="tabpanel" aria-labelledby="result-tab-scale" className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-2">
+        <DesignScale result={result} />
       </section>
     );
   }

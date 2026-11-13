@@ -40,6 +40,11 @@ const TABLE = [
   ["BOX-01", "Corner radius differs", "box", "3B", "Low", [1, "px"], "A box has a different corner radius from its peers.", "Use the same corner radius as the peers."],
   ["BOX-02", "Border or shadow differs", "box", "3B", "Low", null, "A box has a different border or shadow from its peers.", "Use the same border and shadow as the peers."],
   ["BOX-03", "Background differs", "box", "3B", "Low", [3, "deltaE"], "A box has a different background colour from its peers.", "Use the same background as the peers."],
+  ["TYP-07", "Link style differs", "typography", "5", "Medium", [3, "deltaE"], "Links that are styled as links do not all look the same: some are underlined and others are not, or they use different colours.", "Use one style for links: the same colour, and underlined or not."],
+  ["TXT-01", "Text is cut off", "content", "5", "Medium", [2, "px"], "Text runs out of its box, or is cut off by it with no ellipsis to show that there is more.", "Give the text room, let it wrap, or shorten it with an ellipsis and offer the full text."],
+  ["TXT-02", "Shortened text cannot be read in full", "content", "5", "Medium", null, "Text is shortened with an ellipsis and nothing on the element (a title or a label) holds the full text.", "Offer the full text in a title or tooltip, or give the text room."],
+  ["TXT-03", "Text shortened in different ways", "content", "5", "Medium", null, "Peer elements shorten their text in different ways: the ellipsis is typed into the text in some and added by the browser in others, or it is written differently.", "Shorten every text the same way: let the browser add the ellipsis and keep the full text in the page."],
+  ["FMT-01", "Value format differs", "content", "5", "Medium", null, "Values of one column or list field follow different patterns: date formats, number formats or capitalisation.", "Write every value of the column or field in the same format."],
 ];
 
 const rules = TABLE.map(([id, name, category, phase, severity, tolerance, description, fix]) => ({

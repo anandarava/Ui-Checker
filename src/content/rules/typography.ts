@@ -20,7 +20,7 @@ import { textAlignment } from "./rows";
 
 type Pending = Omit<RawFinding, "severity" | "type"> & { severity: RawFinding["severity"] };
 
-interface Check<V> {
+export interface Check<V> {
   ruleId: string;
   /** What is compared, as shown in the finding. */
   property: string;
@@ -28,7 +28,7 @@ interface Check<V> {
 }
 
 /** Turns the verdict on one property of one group into findings. */
-function findingsOf<V>(ctx: RuleContext, check: Check<V>, group: number, verdict: Verdict<V>, total: number): Pending[] {
+export function findingsOf<V>(ctx: RuleContext, check: Check<V>, group: number, verdict: Verdict<V>, total: number): Pending[] {
   const { ruleId, property } = check;
   const name = property.charAt(0).toUpperCase() + property.slice(1);
   if (verdict.kind === "same") return [];
@@ -57,7 +57,7 @@ function findingsOf<V>(ctx: RuleContext, check: Check<V>, group: number, verdict
 }
 
 /** Buckets colours that are closer than `tolerance` (Delta E) to the first colour of a bucket. */
-function bucketColours(entries: Array<Entry<string>>, tolerance: number): Array<Bucket<string>> {
+export function bucketColours(entries: Array<Entry<string>>, tolerance: number): Array<Bucket<string>> {
   const buckets: Array<Bucket<string>> = [];
   for (const entry of entries) {
     const bucket = buckets.find((b) => deltaE(b.entries[0].value, entry.value) < tolerance);

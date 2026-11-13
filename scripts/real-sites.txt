@@ -1,0 +1,27 @@
+# Real-site test list (PLAN.md, Phase 0 and Phase 2).
+# Public pages that cover the frameworks, component libraries and page types of
+# the Principle table. One URL per line; the text after "|" says why it is here.
+# A site the network blocks is skipped by the review script, not failed.
+#
+# Review them with:  node scripts/dump-groups.mjs --sites scripts/real-sites.txt --sample 20
+
+https://en.wikipedia.org/wiki/Web_design | server-rendered article, long text, tables
+https://ar.wikipedia.org/wiki/تصميم_مواقع_الويب | right-to-left page
+https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout | documentation page, sidebars
+https://github.com/microsoft/playwright | React, generated class names, file table
+https://news.ycombinator.com/ | table layout, plain HTML
+https://getbootstrap.com/docs/5.3/examples/dashboard/ | Bootstrap dashboard with a data table
+https://getbootstrap.com/docs/5.3/examples/pricing/ | Bootstrap pricing cards
+https://getbootstrap.com/docs/5.3/examples/album/ | Bootstrap card grid
+https://react.dev/learn | React, Tailwind utility classes
+https://tailwindcss.com/docs/installation | Tailwind utility classes
+https://mui.com/material-ui/react-table/ | Material UI, CSS-in-JS class names
+https://ant.design/components/table | Ant Design
+https://angular.dev/overview | Angular
+https://primeng.org/table | PrimeNG on Angular, data tables
+https://vuejs.org/guide/introduction.html | Vue
+https://svelte.dev/docs/svelte/overview | Svelte
+https://shoelace.style/components/card | Web Components with open shadow roots
+https://datatables.net/examples/basic_init/zero_configuration.html | jQuery data table with pagination
+https://www.chakra-ui.com/docs/components/table | Chakra UI
+https://react.fluentui.dev/?path=/docs/concepts-introduction--docs | Fluent UI, same-origin iframe

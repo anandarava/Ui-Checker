@@ -11,6 +11,8 @@
  * Options:
  *   --preset strict|normal|relaxed   tolerance preset (default normal)
  *   --max <n>                        print at most n findings per page (default: all)
+ *   --audit                          also print the design scale (value x uses, "!" marks a flagged value)
+ *   --tokens <file>                  check the design scale against a design-token file
  *
  * On a fixture, each finding also shows the data-fx name of the element it is
  * in, so it can be matched with the seeded defects.
@@ -24,6 +26,8 @@ const args = process.argv.slice(2);
 const pages = [];
 let preset = "normal";
 let max = Infinity;
+let audit = false;
+let tokens = null;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--all") {
     for (const f of readdirSync("fixtures/src").sort()) {
@@ -37,6 +41,11 @@ for (let i = 0; i < args.length; i++) {
     }
   } else if (args[i] === "--preset") preset = args[++i];
   else if (args[i] === "--max") max = Number(args[++i]);
+  else if (args[i] === "--audit") audit = true;
+  else if (args[i] === "--tokens") {
+    audit = true;
+    tokens = args[++i];
+  }
   else pages.push(args[i]);
 }
 if (pages.length === 0) {
@@ -46,7 +55,7 @@ if (pages.length === 0) {
 
 const out = await build({
   stdin: {
-    contents: `export * from "./snapshot"; export * from "./grouping"; export * from "./rules"; export { RULES } from "@shared/rules";`,
+    contents: `export * from "./snapshot"; export * from "./grouping"; export * from "./rules"; export * from "./audit"; export { RULES } from "@shared/rules"; export { parseTokens } from "@shared/tokens";`,
     resolveDir: "src/content",
     loader: "ts",
   },
@@ -69,7 +78,7 @@ for (const name of pages) {
     if (response && response.status() >= 400) throw new Error(`HTTP ${response.status()}`);
     if (remote) await page.waitForTimeout(2500);
     await page.addScriptTag({ content: out.outputFiles[0].text });
-    const result = await page.evaluate((tolerancePreset) => {
+    const result = await page.evaluate(({ tolerancePreset, tokenFile }) => {
       const engine = window.UICheckEngine;
       const snapshot = engine.takeSnapshot(document.body);
       const groups = engine.findPeerGroups(snapshot.elements);
@@ -90,12 +99,16 @@ for (const name of pages) {
         elements: snapshot.elements.length,
         groups: groups.length,
         expected: expected.map((e) => `${e.id} ${e.rule ?? "-"} <${e.target}>${e.review ? " (review)" : ""}`),
+        audit: engine.buildAudit(snapshot.elements, tokenFile ? engine.parseTokens(tokenFile.text, tokenFile.name) : null).map(
+          (l) => `${l.kind}: ` + l.values.map((v) => `${v.value} x${v.elements.length}${v.flags.length ? "!" + v.flags.map((f) => f.kind).join("+") : ""}`).join("  ") + (l.note ? `\n        (${l.note})` : ""),
+        ),
         findings: run.findings.map((f) => `${f.ruleId} ${f.severity.padEnd(6)} ${(f.type === "Review" ? "review" : f.kind).padEnd(10)} ${describe(f.element)}\n        ${f.message}`),
       };
-    }, preset);
+    }, { tolerancePreset: preset, tokenFile: tokens ? { name: tokens.split(/[\\/]/).pop(), text: readFileSync(tokens, "utf8") } : null });
     console.log(`=== ${name}: ${result.findings.length} findings, ${result.elements} elements, ${result.groups} groups, rules ran in ${result.ms} ms`);
     if (result.expected.length) console.log(`    seeded: ${result.expected.join(" | ")}`);
     console.log(result.findings.slice(0, max).join("\n"));
+    if (audit) console.log("    " + result.audit.join("\n    "));
     summary.push(`ok       ${String(result.findings.length).padStart(4)} findings  ${result.ms} ms  ${name}`);
   } catch (e) {
     const reason = String(e instanceof Error ? e.message : e).split("\n")[0].slice(0, 120);

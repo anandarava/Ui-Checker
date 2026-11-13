@@ -4,9 +4,9 @@
  * settings (chrome.storage.sync).
  */
 import { isMessage, isScanResult, sendToTab, type Message, type Response } from "@shared/messages";
-import { STORAGE_RESULT_PREFIX, STORAGE_SETTINGS, STORAGE_STATUS_PREFIX } from "@shared/constants";
+import { STORAGE_RESULT_PREFIX, STORAGE_SETTINGS, STORAGE_STATUS_PREFIX, STORAGE_TOKENS } from "@shared/constants";
 import { withFindings } from "@shared/scoring";
-import { DEFAULT_SETTINGS, type FindingStatus, type ScanResult, type Settings, type StoredStatus } from "@shared/types";
+import { DEFAULT_SETTINGS, type DesignTokens, type FindingStatus, type ScanResult, type Settings, type StoredStatus } from "@shared/types";
 import { captureEvidence } from "./evidence";
 import { buildReport } from "./exporters";
 import { ensureContentScript } from "./injector";
@@ -32,6 +32,16 @@ async function getSettings(): Promise<Settings> {
     return { ...DEFAULT_SETTINGS, ...(stored ?? {}) };
   } catch {
     return { ...DEFAULT_SETTINGS };
+  }
+}
+
+/** The team's design tokens, imported on the options page; null when none. */
+async function getTokens(): Promise<DesignTokens | null> {
+  try {
+    const stored = (await chrome.storage.local.get(STORAGE_TOKENS))[STORAGE_TOKENS] as DesignTokens | undefined;
+    return stored && typeof stored.name === "string" && Array.isArray(stored.color) ? stored : null;
+  } catch {
+    return null;
   }
 }
 
@@ -127,6 +137,7 @@ async function startScan(msg: Extract<Message, { type: "SCAN_START" }>): Promise
       disabledRules: msg.options.disabledRules ?? settings.disabledRules,
       minGroupSize: msg.options.minGroupSize ?? settings.minGroupSize,
       tolerances: msg.options.tolerances ?? settings.ruleTolerances,
+      tokens: msg.options.tokens !== undefined ? msg.options.tokens : await getTokens(),
     };
 
     const res = await sendToTab<ScanResult>(tabId, { type: "CS_SCAN", tabId, options }, 0);

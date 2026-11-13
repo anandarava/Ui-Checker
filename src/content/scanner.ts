@@ -4,10 +4,9 @@
  *   1. snapshot   (Phase 1)  read every visible element's box, text box and styles
  *   2. grouping   (Phase 2)  find peer groups
  *   3. rules      (Phase 3)  compare the members of each group
+ *   4. audit      (Phase 5)  list the design scale of the page
  *
- * Built so far: the snapshot, the peer groups and the core rules (Phase 3A).
- * A rule whose check does not exist yet is reported as "notImplemented". The result has the final shape, so the UI, the
- * reports and the tests can be built against it.
+ * A rule whose check does not exist yet is reported as "notImplemented".
  *
  * Nothing in here may depend on a particular application: no selectors, class
  * names or text of any specific site.
@@ -15,7 +14,8 @@
 import { ENGINE_VERSION } from "@shared/constants";
 import { RULES } from "@shared/rules";
 import { withFindings } from "@shared/scoring";
-import type { ElementRef, Finding, PeerGroup, RuleResult, ScanOptions, ScanResult } from "@shared/types";
+import type { DesignAudit, ElementRef, Finding, PeerGroup, RuleResult, ScaleKind, ScanOptions, ScanResult } from "@shared/types";
+import { buildAudit, type RawScaleList } from "./audit";
 import { outerHtmlSnippet, uniqueSelector } from "./dom-utils";
 import { fingerprint, textSnippet } from "./fingerprint";
 import { findPeerGroups, type RawGroup } from "./grouping";
@@ -97,9 +97,43 @@ export function overlayFinding(id: string): OverlayFinding | undefined {
   return lastFindings.find((f) => f.id === id);
 }
 
+/** The elements that use each value of the design scale in the last scan, for the on-page overlay. */
+let lastUses = new Map<string, Element[]>();
+
+/** The elements that use a value of the design scale, as a group to outline. */
+export function overlayUses(kind: ScaleKind, value: string): OverlayGroup | undefined {
+  const nodes = lastUses.get(`${kind}|${value}`);
+  return nodes ? { id: `uses-${kind}`, badge: value, nodes } : undefined;
+}
+
 export function forgetGroups(): void {
   lastGroups = [];
   lastFindings = [];
+  lastUses = new Map();
+}
+
+/** Elements shown per value in the panel and the reports; the page can outline all of them. */
+const SAMPLES = 3;
+
+/** Turns the audit of snapshot indexes into what the UI and the reports read. */
+function describeAudit(raw: RawScaleList[], snapshot: PageSnapshot, refOf: (i: number) => ElementRef, options: ScanOptions): DesignAudit {
+  lastUses = new Map();
+  const lists = raw.map((list) => ({
+    kind: list.kind,
+    ...(list.note ? { note: list.note } : {}),
+    values: list.values.map((v) => {
+      lastUses.set(`${list.kind}|${v.value}`, v.elements.map((i) => snapshot.nodes[i]));
+      return {
+        value: v.value,
+        count: v.elements.length,
+        ...(v.detail ? { detail: v.detail } : {}),
+        samples: v.elements.slice(0, SAMPLES).map(refOf),
+        flags: v.flags,
+        ...(v.token ? { token: v.token } : {}),
+      };
+    }),
+  }));
+  return { lists, ...(options.tokens ? { tokenFile: options.tokens.name } : {}) };
 }
 
 /** Describes snapshot elements for the UI and the reports; each element is described once. */
@@ -198,11 +232,13 @@ export async function runScan(options: ScanOptions, onProgress: ProgressFn = () 
   onProgress(85, "Comparing");
   const rulesStarted = performance.now();
   const run = runRules(snapshot.elements, rawGroups, options, rulesToRun(options));
+  const rawAudit = buildAudit(snapshot.elements, options.tokens ?? null);
   const rulesMs = Math.round(performance.now() - rulesStarted);
 
   const refOf = describer(snapshot);
   const groups = describeGroups(rawGroups, snapshot, refOf);
   const findings = describeFindings(run, refOf, rawGroups, snapshot);
+  const audit = describeAudit(rawAudit, snapshot, refOf, options);
 
   onProgress(100, "Done");
   const result: ScanResult = {
@@ -221,6 +257,7 @@ export async function runScan(options: ScanOptions, onProgress: ProgressFn = () 
     groups,
     findings,
     rules: ruleResults(options, run),
+    audit,
     notScanned: snapshot.notScanned,
     warnings: readyWarnings(ready),
   };

@@ -1,5 +1,6 @@
 import { useMemo, useRef, type KeyboardEvent } from "react";
 import { DEFAULT_FILTERS, failedRules, matchesFilters, useStore, type ResultTab } from "@src/sidepanel/store";
+import { flaggedValues } from "./DesignScale";
 
 const TABS: Array<{ value: ResultTab; label: string }> = [
   { value: "all", label: "All" },
@@ -7,10 +8,12 @@ const TABS: Array<{ value: ResultTab; label: string }> = [
   { value: "layout", label: "Layout & spacing" },
   { value: "group", label: "Group structure" },
   { value: "box", label: "Box style" },
+  { value: "content", label: "Text & content" },
   { value: "review", label: "Needs review" },
   { value: "failed", label: "Failed rules" },
   { value: "passed", label: "Passed rules" },
   { value: "groups", label: "Peer groups" },
+  { value: "scale", label: "Design scale" },
 ];
 
 /**
@@ -36,10 +39,13 @@ export function ResultTabs() {
       layout: count("layout"),
       group: count("group"),
       box: count("box"),
+      content: count("content"),
       review: count("review"),
       failed: failedRules(result, filters).length,
       passed: result?.rules.filter((r) => r.outcome === "passed").length ?? 0,
       groups: result?.groups.length ?? 0,
+      // Values of the scale that stand out.
+      scale: flaggedValues(result?.audit),
     } satisfies Record<ResultTab, number>;
   }, [result, filters]);
 

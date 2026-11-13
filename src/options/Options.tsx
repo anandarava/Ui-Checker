@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { CATALOGUE_VERSION, CATEGORY_LABEL, RULES, toleranceFor } from "@shared/rules";
-import { STORAGE_SETTINGS, STORAGE_STATUS_PREFIX } from "@shared/constants";
-import { DEFAULT_SETTINGS, type RuleCategory, type RuleDef, type Settings, type StoredStatus, type TolerancePreset } from "@shared/types";
+import { STORAGE_SETTINGS, STORAGE_STATUS_PREFIX, STORAGE_TOKENS } from "@shared/constants";
+import { describeTokens, parseTokens } from "@shared/tokens";
+import { DEFAULT_SETTINGS, type DesignTokens, type RuleCategory, type RuleDef, type Settings, type StoredStatus, type TolerancePreset } from "@shared/types";
 
 /**
  * Options page, with the sections of the PalTech Accessibility Testing
  * options page: General (tolerance, group size, organisation and "Prepared
  * by"), Rules (on/off and tolerance per rule), Baselines (what was ignored,
- * baselined or marked intentional, per site), Import / Export and Privacy.
+ * baselined or marked intentional, per site), Design tokens, Import / Export
+ * and Privacy.
  */
 
-const CATEGORIES: RuleCategory[] = ["typography", "layout", "group", "box"];
+const CATEGORIES: RuleCategory[] = ["typography", "layout", "group", "box", "content"];
 const UNIT_LABEL = { px: "px", ratio: "× larger", deltaE: "ΔE", exact: "" } as const;
 const PRESETS: Array<{ value: TolerancePreset; label: string; hint: string }> = [
   { value: "strict", label: "Strict", hint: "Half the default tolerances (1 px for most layout rules)" },
@@ -49,6 +51,8 @@ export function Options() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [tokens, setTokens] = useState<DesignTokens | null>(null);
+  const tokenRef = useRef<HTMLInputElement>(null);
 
   const loadStatuses = useCallback(async () => {
     const all = await chrome.storage.local.get(null);
@@ -65,7 +69,29 @@ export function Options() {
       .then((stored) => setSettings({ ...DEFAULT_SETTINGS, ...((stored[STORAGE_SETTINGS] as Partial<Settings> | undefined) ?? {}) }))
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
     void loadStatuses();
+    chrome.storage.local
+      .get(STORAGE_TOKENS)
+      .then((stored) => setTokens((stored[STORAGE_TOKENS] as DesignTokens | undefined) ?? null))
+      .catch(() => undefined);
   }, [loadStatuses]);
+
+  const importTokens = async (file: File): Promise<void> => {
+    try {
+      const parsed = parseTokens(await file.text(), file.name);
+      await chrome.storage.local.set({ [STORAGE_TOKENS]: parsed });
+      setTokens(parsed);
+      setNotice(`Design tokens loaded from ${file.name}. The next scan checks the design scale against them.`);
+      setError(null);
+    } catch (e) {
+      setError(`Could not read the design tokens: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const removeTokens = async (): Promise<void> => {
+    await chrome.storage.local.remove(STORAGE_TOKENS);
+    setTokens(null);
+    setNotice("Design tokens removed. The design scale is judged against the page itself again.");
+  };
 
   const save = async (next: Settings): Promise<void> => {
     setSettings(next);
@@ -290,6 +316,47 @@ export function Options() {
         </div>
       </section>
 
+      <section aria-labelledby={`${id}-tokens`} className={CARD}>
+        <h2 id={`${id}-tokens`} className={CARD_TITLE}>
+          Design tokens
+        </h2>
+        <div className="px-4 py-3">
+          <p className="text-sm text-slate-700">
+            Optional. Load your team's token file (Figma tokens or any design-token JSON) and the Design scale tab checks the fonts, sizes, spacing and colours of a page against the tokens instead of against the page itself. The file stays in
+            this browser.
+          </p>
+          {tokens ? (
+            <p className="mt-2 text-sm text-slate-900" data-testid="token-summary">
+              <strong>{tokens.name}</strong>: {describeTokens(tokens)}.
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-slate-700">No token file is loaded.</p>
+          )}
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" className={BUTTON} onClick={() => tokenRef.current?.click()}>
+              {tokens ? "Replace the token file…" : "Load a token file…"}
+            </button>
+            <input
+              ref={tokenRef}
+              type="file"
+              accept="application/json,.json"
+              className="sr-only"
+              aria-label="Design token file"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void importTokens(file);
+                e.target.value = "";
+              }}
+            />
+            {tokens && (
+              <button type="button" className={BUTTON} onClick={() => void removeTokens()}>
+                Remove the tokens
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
       <section aria-labelledby={`${id}-io`} className={CARD}>
         <h2 id={`${id}-io`} className={CARD_TITLE}>
           Import / Export
@@ -330,7 +397,7 @@ export function Options() {
           <p>
             <strong className="text-slate-900">Nothing leaves your machine.</strong> Pages are scanned in your browser. The extension sends no page content, screenshots, results or usage data to any server.
           </p>
-          <p>Results are kept for the browser session only. Settings are kept in your browser profile (and synced by Chrome if you use sync). Baselines are kept in this browser.</p>
+          <p>Results are kept for the browser session only. Settings are kept in your browser profile (and synced by Chrome if you use sync). Baselines and design tokens are kept in this browser.</p>
           <p>Reports are built on your machine and saved where you choose. Screenshots in a report show the page as it was on your screen: check them before sharing a report outside your team.</p>
         </div>
       </section>

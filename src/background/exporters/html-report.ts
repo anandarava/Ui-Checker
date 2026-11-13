@@ -12,7 +12,7 @@
  */
 import { CATEGORY_LABEL, getRule } from "@shared/rules";
 import { scoreBand as bandOf } from "@shared/scoring";
-import type { Finding, PeerGroup, ScanResult, Severity } from "@shared/types";
+import type { DesignAudit, Finding, PeerGroup, ScaleKind, ScanResult, Severity } from "@shared/types";
 import { toolInfo } from "./json-report";
 
 export interface ReportMeta {
@@ -320,6 +320,8 @@ ol.top{list-style:none;margin:0;padding:0;display:grid;gap:.7rem}
 .limits{background:#f7f8fb}
 .limits ul{margin:.4rem 0 0;padding-left:1.1rem}
 .scroll{overflow-x:auto}
+.scale h4{margin:1.1rem 0 .2rem;font-size:.95rem}.scale tr.flagged th,.scale tr.flagged td{background:#fff8ec}
+.swatch{display:inline-block;width:.9rem;height:.9rem;margin-right:.4rem;vertical-align:-.1rem;border:1px solid #8d99ae;border-radius:3px}
 table{border-collapse:collapse;width:100%}
 table.grid th,table.grid td{padding:.55rem .6rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 table.grid thead th{font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
@@ -381,6 +383,36 @@ footer{color:var(--muted);font-size:.84rem;padding-bottom:2rem}
 // ---------------------------------------------------------------------------
 // Report
 // ---------------------------------------------------------------------------
+
+const SCALE_LABEL: Record<ScaleKind, string> = { fontFamily: "Font families", fontSize: "Font sizes", fontWeight: "Font weights", spacing: "Spacing", color: "Colours" };
+const SAFE_COLOUR = /^rgba?\([\d\s.,%/]+\)$/;
+
+/** The design scale of the page: every value with how often it is used, and the ones that stand out. */
+function renderDesignScale(audit: DesignAudit | undefined): string {
+  if (!audit) return "";
+  const flagged = audit.lists.reduce((n, list) => n + list.values.filter((v) => v.flags.length > 0).length, 0);
+  const tables = audit.lists
+    .map((list) => {
+      if (list.values.length === 0) return "";
+      const rows = list.values
+        .map((v) => {
+          const swatch = list.kind === "color" && SAFE_COLOUR.test(v.value) ? `<span class="swatch" style="background:${escapeHtml(v.value)}" aria-hidden="true"></span>` : "";
+          const where = v.samples.map((s) => `<code>${escapeHtml(s.selector)}</code>`).join("<br>") + (v.count > v.samples.length ? `<br><span class="muted small">and ${v.count - v.samples.length} more</span>` : "");
+          const notes = v.flags.map((flag) => escapeHtml(flag.message)).join("<br>");
+          return `<tr${v.flags.length ? ' class="flagged"' : ""}><th scope="row">${swatch}${escapeHtml(v.value)}${v.token ? `<br><span class="muted small">${escapeHtml(v.token)}</span>` : ""}</th><td>${escapeHtml(v.count)}${v.detail ? `<br><span class="muted small">${escapeHtml(v.detail)}</span>` : ""}</td><td>${where}</td><td>${notes}</td></tr>`;
+        })
+        .join("");
+      return `<h4>${escapeHtml(SCALE_LABEL[list.kind])} (${list.values.length})</h4>${list.note ? `<p class="muted small">${escapeHtml(list.note)}</p>` : ""}
+<div class="scroll"><table class="grid"><caption class="sr-only">${escapeHtml(SCALE_LABEL[list.kind])}</caption><thead><tr><th scope="col">Value</th><th scope="col">Used by</th><th scope="col">Where</th><th scope="col">Note</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    })
+    .join("\n");
+  const basis = audit.tokenFile
+    ? `The values are checked against the design tokens of <strong>${escapeHtml(audit.tokenFile)}</strong>.`
+    : "No design tokens were loaded, so a value is judged against the page itself: used once, off the spacing grid the page follows, or almost the same as a more used colour.";
+  return `<section class="card scale" id="h-scale" aria-labelledby="h-scale-t"><h3 id="h-scale-t" class="label">Design scale</h3>
+<p>The fonts, sizes, spacing and colours this page uses. ${basis} ${flagged === 0 ? "No value stands out." : `${plural(flagged, "value")} ${flagged === 1 ? "stands" : "stand"} out.`} These are observations about the whole page: they are not counted as issues or in the score.</p>
+${tables}</section>`;
+}
 
 export function buildHtmlReport(result: ScanResult, meta: ReportMeta = {}): string {
   const tool = toolInfo();
@@ -472,7 +504,7 @@ ${reviewGroups.map((g) => renderRuleDetails(g, peerGroups, "review", true)).join
 <dl aria-label="Report facts">${coverFacts}</dl>
 </div></header>
 <nav class="toc" aria-label="Report sections"><ul class="wrap">
-<li><a href="#part-summary">Summary</a></li>${groups.length ? `<li><a href="#h-top">Fix these first</a></li>` : ""}<li><a href="#h-tested">What was tested</a></li><li><a href="#part-dev">Developer details</a></li>${review.length ? `<li><a href="#h-review">Needs review</a></li>` : ""}${excluded.length ? `<li><a href="#h-excluded">Excluded issues</a></li>` : ""}<li><a href="#h-lists">Rules checked</a></li><li><a href="#h-scan">Scan details</a></li>
+<li><a href="#part-summary">Summary</a></li>${groups.length ? `<li><a href="#h-top">Fix these first</a></li>` : ""}<li><a href="#h-tested">What was tested</a></li><li><a href="#part-dev">Developer details</a></li>${review.length ? `<li><a href="#h-review">Needs review</a></li>` : ""}${excluded.length ? `<li><a href="#h-excluded">Excluded issues</a></li>` : ""}${result.audit ? `<li><a href="#h-scale">Design scale</a></li>` : ""}<li><a href="#h-lists">Rules checked</a></li><li><a href="#h-scan">Scan details</a></li>
 </ul></nav>
 
 <main id="main" class="wrap">
@@ -517,7 +549,7 @@ ${renderAffected(active, peerGroups)}
 <h3 id="h-limits" class="label">About this report</h3>
 <p>The checks compare elements with their peers on this page. They do not know the design: a page that is consistently wrong still passes.</p>
 <p>Still to be judged by a person:</p>
-<ul class="small"><li>Differences made on purpose: a featured card, an active item, a status colour (see "Needs review")</li><li>Whether the page matches its design or design tokens</li><li>Screens or parts delivered as images, canvas drawings and frames from another site</li><li>Other pages, other screen widths and other states of this page</li><li>The font actually drawn when the first font of the list is missing</li></ul>
+<ul class="small"><li>Differences made on purpose: a featured card, an active item, a status colour (see "Needs review")</li><li>Whether the page matches its design (the "Design scale" section lists its values${result.audit?.tokenFile ? " against the design tokens" : "; load the design tokens to check against them"})</li><li>Screens or parts delivered as images, canvas drawings and frames from another site</li><li>Other pages, other screen widths and other states of this page</li><li>The font actually drawn when the first font of the list is missing</li></ul>
 </section>
 </div>
 
@@ -530,6 +562,8 @@ ${detailsHtml}
 
 ${reviewHtml}
 ${excludedHtml}
+
+${renderDesignScale(result.audit)}
 
 ${listsHtml}
 

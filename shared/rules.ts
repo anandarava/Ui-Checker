@@ -20,6 +20,7 @@ export const CATEGORY_LABEL: Record<RuleCategory, string> = {
   layout: "Layout & spacing",
   group: "Group structure",
   box: "Box style",
+  content: "Text & content",
 };
 
 /** The tolerance a rule uses under a preset; undefined for exact-match rules. */

@@ -102,6 +102,21 @@ async function sendToBackground<T>(panel: Page, msg: Message): Promise<Response<
   }, msg);
 }
 
+/** Sends a message to the content script of a tab (top frame). */
+async function sendToTab<T>(panel: Page, tabId: number, msg: Message): Promise<Response<T>> {
+  return panel.evaluate(
+    async ({ id, m }) => {
+      try {
+        const response = (await chrome.tabs.sendMessage(id, m, { frameId: 0 })) as Response<T> | undefined;
+        return response ?? { ok: true };
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : String(e) };
+      }
+    },
+    { id: tabId, m: msg },
+  );
+}
+
 /** Saves a screenshot when UICHECK_E2E_SHOTS names a folder; used to review the UI by eye. */
 async function shot(page: Page, name: string): Promise<void> {
   const dir = process.env.UICHECK_E2E_SHOTS;
@@ -213,7 +228,8 @@ test.describe("extension", () => {
     expect(result.score).toBeLessThan(100);
     const open = result.findings.filter((f) => f.type === "Definite").length;
     await expect(panel.getByRole("tab", { name: new RegExp(`^All ${open}$`) })).toBeVisible();
-    await expect(panel.getByRole("tab", { name: /^Needs review 2$/ })).toBeVisible();
+    // For review: the two card styles, the navigation item without a label and the two link styles.
+    await expect(panel.getByRole("tab", { name: /^Needs review 3$/ })).toBeVisible();
     await expect(panel.getByRole("button", { name: "Rescan page" })).toBeVisible();
 
     // The list is grouped by rule; a rule expands to its elements.
@@ -352,6 +368,78 @@ test.describe("extension", () => {
     await panel.getByRole("button", { name: "Reset" }).click();
     await expect(overlay).toHaveCount(0);
 
+    await panel.close();
+    await page.close();
+  });
+
+  test("the side panel lists the design scale, shows where a value is used and checks it against design tokens", async () => {
+    const url = `${baseUrl}/dashboard-defects.html`;
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: "load" });
+    const tabId = await findTabId(helper, url);
+    const panel = await context.newPage();
+    await panel.goto(`chrome-extension://${extensionId}/src/sidepanel/index.html?tabId=${tabId}`);
+    await panel.getByRole("button", { name: "Start scan" }).click();
+
+    // The new rules have their own tab.
+    await panel.getByRole("tab", { name: /^Text & content/ }).click();
+    await expect(panel.getByRole("tabpanel")).toContainText("Text shortened in different ways");
+
+    await panel.getByRole("tab", { name: /^Design scale/ }).click();
+    const scale = panel.getByTestId("design-scale");
+    await expect(scale).toContainText("Font sizes (9)");
+    await expect(scale).toContainText("Font families (1)");
+    await expect(scale).toContainText("load your design tokens under Rules");
+    await expect(scale).toContainText("Used once");
+    await expect(scale).toContainText("Near-duplicate");
+    await shot(panel, "panel-scale");
+
+    // Selecting a value outlines every element that uses it; selecting it again removes the outlines.
+    const overlay = page.locator("#ui-consistency-checker-overlay");
+    const size = scale.getByRole("button", { name: /^22px/ });
+    await expect(overlay).toHaveCount(0);
+    await size.click();
+    await expect(size).toHaveAttribute("aria-pressed", "true");
+    await expect(overlay).toHaveCount(1);
+    await shot(page, "page-uses");
+    const drawn = await sendToTab<number>(helper, tabId, { type: "CS_SHOW_USES", tabId, kind: "fontSize", value: "22px" });
+    expect(drawn.data).toBe(6); // five card titles and the name the defect made 22px
+    await size.click();
+    await expect(overlay).toHaveCount(0);
+
+    // Design tokens are loaded on the options page.
+    const options = await context.newPage();
+    await options.goto(`chrome-extension://${extensionId}/src/options/index.html`);
+    const tokens = options.getByRole("region", { name: "Design tokens" });
+    await expect(tokens).toContainText("No token file is loaded.");
+    await options.getByLabel("Design token file").setInputFiles({ name: "empty.json", mimeType: "application/json", buffer: Buffer.from('{ "radius": { "card": "12px" } }') });
+    await expect(options.getByRole("alert")).toContainText("No font, spacing or colour tokens were found");
+    await options.getByLabel("Design token file").setInputFiles(path.resolve("fixtures", "tokens", "dashboard.tokens.json"));
+    await expect(options.getByTestId("token-summary")).toHaveText("dashboard.tokens.json: 8 colours, 15 spacing values, 9 font sizes, 3 font weights, 1 font family.");
+
+    // The next scan checks the scale against them.
+    const checked = (await sendToBackground<ScanResult>(helper, { type: "SCAN_START", tabId, options: SCAN_OPTIONS })).data as ScanResult;
+    expect(checked.audit?.tokenFile).toBe("dashboard.tokens.json");
+    const off = checked.audit!.lists.flatMap((l) => l.values.filter((v) => v.flags.some((f) => f.kind === "notToken")).map((v) => v.value));
+    // The grey of the holiday tiles is not listed: it cannot be told from the page grey, which is a token.
+    expect(off).toEqual(["19px", "29px", "39px", "50px", "68px"]);
+    await expect(scale).toContainText("Checked against the design tokens of dashboard.tokens.json");
+    await expect(scale).toContainText("Not a token");
+    await expect(scale).toContainText("typography.card-title.fontSize");
+    await expect(panel.getByRole("tab", { name: /^Design scale 5$/ })).toBeVisible();
+
+    // The report has the scale too.
+    const report = (await sendToBackground<{ content: string }>(helper, { type: "EXPORT_REPORT", tabId, format: "html" })).data!;
+    expect(report.content).toContain("design tokens of <strong>dashboard.tokens.json</strong>");
+    expect(report.content).toContain("Not a design token. The closest is space.7 (28px).");
+
+    // Without the tokens the page is judged against itself again.
+    await tokens.getByRole("button", { name: "Remove the tokens" }).click();
+    await expect(tokens).toContainText("No token file is loaded.");
+    const plain = (await sendToBackground<ScanResult>(helper, { type: "SCAN_START", tabId, options: SCAN_OPTIONS })).data as ScanResult;
+    expect(plain.audit?.tokenFile).toBeUndefined();
+
+    await options.close();
     await panel.close();
     await page.close();
   });

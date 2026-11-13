@@ -11,7 +11,9 @@
 import { test, expect } from "@playwright/test";
 import type { TolerancePreset } from "@shared/types";
 import catalogue from "../../shared/ui-rules.json" with { type: "json" };
-import { findFindings, fixtureUrl, type FoundFinding } from "./support/engine";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { findAudit, findFindings, fixtureUrl, ROOT, type FoundFinding } from "./support/engine";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -36,6 +38,8 @@ const UNNAMED: Record<string, string[]> = {
   compliance: ["LAY-03"],
   // D6 moves the location item of both event cards; the manifest names the first.
   dashboard: ["LAY-07"],
+  // D3 takes the title off every shortened cell; the manifest names the first.
+  table: ["TXT-02"],
 };
 
 function describe(f: FoundFinding): string {
@@ -45,7 +49,7 @@ function describe(f: FoundFinding): string {
 test.describe("rules", () => {
   test("every rule of the catalogue is built", () => {
     expect(BUILT.size).toBe(catalogue.rules.length);
-    expect(BUILT.size).toBe(22);
+    expect(BUILT.size).toBe(27);
   });
 
   for (const name of FIXTURES) {
@@ -138,6 +142,92 @@ test.describe("rules", () => {
     expect(relaxed).toContain("LAY-06|holiday-grid");
     expect(relaxed).toContain("TYP-02|who-name");
     for (const key of relaxed) expect(normal).toContain(key);
+  });
+
+  test("the new findings say what was expected and what was found", async ({ page }) => {
+    const by = (findings: FoundFinding[], rule: string, target: string): FoundFinding => {
+      const f = findings.find((x) => x.ruleId === rule && x.within[0] === target);
+      if (!f) throw new Error(`${rule} on <${target}> not found`);
+      return f;
+    };
+    await page.goto(fixtureUrl("dashboard-defects"));
+    const dashboard = (await findFindings(page)).findings;
+    expect(by(dashboard, "TXT-03", "person-name-2")).toMatchObject({ kind: "outlier", type: "Definite", actual: 'typed " ..."', expected: "shortened by the browser" });
+    expect(by(dashboard, "TYP-07", "ev-loc-1")).toMatchObject({ kind: "pair", type: "Review", group: -1, message: "Link underline differs between these two links: underlined, not underlined." });
+
+    await page.goto(fixtureUrl("table-defects"));
+    const table = (await findFindings(page)).findings;
+    expect(by(table, "FMT-01", "date-7")).toMatchObject({ kind: "outlier", type: "Definite", property: "date format", actual: "Mon D, YYYY", expected: "DD/MM/YYYY" });
+    expect(by(table, "TXT-02", "email-1")).toMatchObject({ type: "Definite", group: -1 });
+    expect(by(table, "TXT-03", "job-3").actual).toBe('typed " ..."');
+    // Every email and the three long job titles are shortened by their column.
+    expect(table.filter((f) => f.ruleId === "TXT-02")).toHaveLength(12);
+
+    await page.goto(fixtureUrl("compliance-defects"));
+    const compliance = (await findFindings(page)).findings.filter((f) => f.ruleId === "TXT-03");
+    expect(compliance.map((f) => f.actual)).toEqual(['typed " ..." after a separator', 'typed " ..."', 'typed "..."']);
+  });
+
+  test("the audit lists the real scale of the dashboard", async ({ page }) => {
+    await page.goto(fixtureUrl("dashboard-clean"));
+    const audit = await findAudit(page);
+    const values = (kind: string): string[] => audit[kind].values.map((v) => v.value);
+    const flags = (kind: string): string[] => audit[kind].values.flatMap((v) => v.flags.map((f) => `${v.value} ${f.kind}`));
+    // The values of the stylesheet of the fixture, nothing else.
+    expect(values("fontFamily")).toEqual(["system-ui"]);
+    expect(values("fontSize")).toEqual(["12px", "13px", "14px", "15px", "16px", "17px", "20px", "22px", "28px"]);
+    expect(values("fontWeight")).toEqual(["400", "600", "700"]);
+    expect(values("spacing")).toEqual(["4px", "8px", "10px", "12px", "13px", "14px", "15px", "16px", "20px", "24px", "25px", "26px", "28px", "35px", "36px"]);
+    expect(values("color").sort()).toEqual(["rgb(107, 107, 107)", "rgb(11, 74, 143)", "rgb(17, 17, 17)", "rgb(199, 215, 234)", "rgb(220, 220, 220)", "rgb(242, 242, 242)", "rgb(255, 255, 255)", "rgb(51, 51, 51)"]);
+    // "margin: 4px auto 0" centres a name: the px the layout gave it are not a spacing value.
+    expect(audit.spacing.values.every((v) => Number.isInteger(Number.parseFloat(v.value)))).toBe(true);
+    // Used once: the 14px of the button and the 28px of the page title; five spacing values.
+    expect(flags("fontSize")).toEqual(["14px once", "28px once"]);
+    expect(flags("spacing")).toEqual(["15px once", "25px once", "28px once", "35px once", "36px once"]);
+    expect(audit.spacing.note).toContain("does not follow a 4px grid");
+    // The card title size is used by the five card titles.
+    expect(audit.fontSize.values.find((v) => v.value === "22px")?.count).toBe(5);
+
+    // The defects page adds the values of its seeded defects.
+    await page.goto(fixtureUrl("dashboard-defects"));
+    const defects = await findAudit(page);
+    const added = defects.spacing.values.map((v) => v.value).filter((v) => !values("spacing").includes(v));
+    expect(added).toEqual(["19px", "29px", "39px", "50px", "68px"]);
+  });
+
+  test("the audit shows a size that only one list uses (compliance D7)", async ({ page }) => {
+    // No rule reports D7: it is a page-wide observation. The audit must show the size and where it is used.
+    await page.goto(fixtureUrl("compliance-defects"));
+    const defects = (await findAudit(page)).fontSize.values.find((v) => v.value === "20px")!;
+    await page.goto(fixtureUrl("compliance-clean"));
+    const clean = (await findAudit(page)).fontSize.values.find((v) => v.value === "20px")!;
+    expect(defects.within).toContain("status-list");
+    expect(clean.within).not.toContain("status-list");
+    expect(defects.count).toBeGreaterThan(clean.count);
+  });
+
+  test("the token check works with the sample token file", async ({ page }) => {
+    const tokens = { name: "dashboard.tokens.json", text: readFileSync(path.join(ROOT, "fixtures", "tokens", "dashboard.tokens.json"), "utf8") };
+    const off = (audit: Awaited<ReturnType<typeof findAudit>>): string[] => Object.values(audit).flatMap((l) => l.values.filter((v) => v.flags.some((f) => f.kind === "notToken")).map((v) => `${l.kind} ${v.value}`));
+
+    // The clean page uses the tokens and nothing else.
+    await page.goto(fixtureUrl("dashboard-clean"));
+    const clean = await findAudit(page, tokens);
+    expect(off(clean)).toEqual([]);
+    expect(Object.values(clean).every((l) => l.values.every((v) => v.token && v.flags.length === 0))).toBe(true);
+    expect(clean.fontSize.values.find((v) => v.value === "22px")?.token).toBe("typography.card-title.fontSize");
+    expect(clean.color.values.find((v) => v.value === "rgb(11, 74, 143)")?.token).toBe("color.brand.primary");
+    expect(clean.spacing.values.find((v) => v.value === "16px")?.token).toBe("space.4");
+    expect(clean.spacing.note).toBe("Every value is a token of dashboard.tokens.json.");
+
+    // The defects page: the values its seeded defects bring in are not tokens.
+    await page.goto(fixtureUrl("dashboard-defects"));
+    const defects = await findAudit(page, tokens);
+    expect(off(defects)).toEqual(["spacing 19px", "spacing 29px", "spacing 39px", "spacing 50px", "spacing 68px"]);
+    // The grey of the holiday tiles cannot be told from the page grey (Delta E below 1), so it counts as that token.
+    expect(defects.color.values.find((v) => v.value === "rgb(245, 244, 244)")?.token).toBe("color.surface.page");
+    expect(defects.spacing.values.find((v) => v.value === "29px")?.flags[0].message).toBe("Not a design token. The closest is space.7 (28px).");
+    expect(defects.spacing.note).toBe("5 values are not in dashboard.tokens.json.");
   });
 
   test("runs on 5,000 elements well inside the scan budget", async ({ page }) => {

@@ -34,7 +34,7 @@ PLAN.md and the table in README.md when a phase is finished.
 - `npm run fixtures:build` rebuilds the fixture pages after editing `fixtures/src`
 - `node scripts/make-rules.mjs` rewrites the rule catalogue from its table
 - `node scripts/dump-groups.mjs <fixture or URL>` prints the peer groups of a page
-- `node scripts/dump-findings.mjs --all` prints the findings on every fixture (`--sites scripts/real-sites.txt` for the real-site list)
+- `node scripts/dump-findings.mjs --all` prints the findings on every fixture (`--sites scripts/real-sites.txt` for the real-site list, `--audit` adds the design scale, `--tokens <file>` checks it against a token file)
 
 ## Layout
 
@@ -43,6 +43,8 @@ PLAN.md and the table in README.md when a phase is finished.
 - `src/content/snapshot.ts` the page snapshot; rules read it, never the live DOM
 - `src/content/grouping.ts` peer groups, from the snapshot only; never reads class names
 - `src/content/rules/` the consistency rules; they read the snapshot and the groups only
+- `src/content/audit.ts` the design-scale audit (fonts, sizes, spacing, colours); its marks are observations, not findings
+- `shared/tokens.ts` reads a design-token file; tokens are kept in `chrome.storage.local`, not in the synced settings
 - `src/content/facts.ts` what the grouping and the rules both need to know about an element
 - `src/content/overlay/` what the extension draws on the page
 - `src/background/` service worker and content-script injection

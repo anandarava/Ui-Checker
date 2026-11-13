@@ -1,6 +1,7 @@
 /**
- * Consistency rules (PLAN.md, Phase 3). Each rule compares the members of the
- * peer groups and reports the ones that differ from the others. Rules read the
+ * Consistency rules (PLAN.md, Phases 3 and 5). Each rule compares the members of the
+ * peer groups and reports the ones that differ from the others; a few rules
+ * about text (cut-off text, link style) look at the whole page. Rules read the
  * snapshot and the groups only; they never touch the live DOM.
  *
  * A rule without a check is not run and is reported as "notImplemented" by
@@ -12,6 +13,7 @@ import { createFacts, type Facts } from "../facts";
 import type { RawGroup } from "../grouping";
 import type { ElementSnapshot } from "../snapshot";
 import type { Verdict } from "./compare";
+import { runContentRules } from "./content";
 import { runLayoutRules } from "./layout";
 import { runRowRules } from "./rows";
 import { runStructureRules } from "./structure";
@@ -109,6 +111,7 @@ export function runRules(elements: ElementSnapshot[], groups: RawGroup[], option
   runLayoutRules(context);
   runRowRules(context);
   runStructureRules(context);
+  runContentRules(context);
 
   // Document order, so the list reads top to bottom.
   findings.sort((a, b) => a.element - b.element || a.ruleId.localeCompare(b.ruleId));

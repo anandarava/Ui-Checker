@@ -14,8 +14,8 @@ import { DEFAULT_SETTINGS, type Finding, type FindingStatus, type RuleCategory, 
 
 export type View = "list" | "detail";
 
-/** Result tabs: every finding, one tab per category, needs review, the rules, and the peer groups. */
-export type ResultTab = "all" | RuleCategory | "review" | "failed" | "passed" | "groups";
+/** Result tabs: every finding, one tab per category, needs review, the rules, the peer groups and the design scale. */
+export type ResultTab = "all" | RuleCategory | "review" | "failed" | "passed" | "groups" | "scale";
 
 /** What a scan covers: the whole page, or one element and everything inside it. */
 export interface ScanScope {
@@ -181,7 +181,7 @@ export function matchesTab(finding: Finding, tab: ResultTab): boolean {
   if (tab === "review") return isNeedsReviewIssue(finding);
   if (isNeedsReviewIssue(finding)) return false;
   if (tab === "all") return true;
-  if (tab === "failed" || tab === "passed" || tab === "groups") return false;
+  if (tab === "failed" || tab === "passed" || tab === "groups" || tab === "scale") return false;
   return categoryOf(finding) === tab;
 }
 

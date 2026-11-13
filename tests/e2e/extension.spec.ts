@@ -16,7 +16,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ScanOptions, ScanResult } from "@shared/types";
+import type { SavedScanMeta, ScanOptions, ScanResult } from "@shared/types";
 import type { Message, Response } from "@shared/messages";
 import catalogue from "../../shared/ui-rules.json" with { type: "json" };
 
@@ -621,6 +621,133 @@ test.describe("extension", () => {
     await options.getByLabel("Organisation").fill("");
     await options.getByLabel("Prepared by").fill("");
     await options.close();
+    await page.close();
+  });
+
+  test("saves a scan, opens it read-only and compares it with the page after a fix", async () => {
+    const url = `${baseUrl}/dashboard-defects.html`;
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: "load" });
+    const tabId = await findTabId(helper, url);
+    const panel = await context.newPage();
+    await panel.goto(`chrome-extension://${extensionId}/src/sidepanel/index.html?tabId=${tabId}`);
+
+    // Saved scans can be opened before anything is scanned.
+    await panel.getByRole("button", { name: "Saved Scans" }).click();
+    const saved = panel.getByTestId("saved-scans");
+    await expect(saved.getByRole("heading", { name: "No saved scans yet" })).toBeVisible();
+    await saved.getByRole("button", { name: "Back to results" }).click();
+
+    await panel.getByRole("button", { name: "Start scan" }).click();
+    await expect(panel.getByText(/Consistency score \d+ \/ 100/)).toBeVisible();
+    const before = (await sendToBackground<ScanResult>(helper, { type: "GET_LAST_RESULT", tabId })).data as ScanResult;
+
+    // Save from the footer: a name is required, and the date is added to it.
+    await panel.getByRole("button", { name: "Save scan" }).click();
+    await panel.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(panel.getByRole("alert")).toHaveText("Enter a name for this scan.");
+    await panel.getByPlaceholder("e.g. Checkout page").fill("Before the fix");
+    await panel.getByLabel("Include screenshots").uncheck();
+    await panel.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(saved).toBeVisible();
+    await expect(saved).toContainText("Before the fix");
+    await expect(saved).toContainText("Tolerance: normal");
+    await expect(saved).toContainText(`${before.summary.high} high`);
+    const list = (await sendToBackground<SavedScanMeta[]>(helper, { type: "SAVED_SCANS_LIST" })).data!;
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ url, score: before.score, issueCount: before.findings.filter((f) => f.type === "Definite").length });
+    expect(list[0].name).toMatch(/^Before the fix – /);
+    await shot(panel, "panel-saved");
+
+    // Fix one seeded defect on the page and scan again: the holiday grid starts where the other content starts.
+    await page.locator("[data-fx='holiday-grid']").evaluate((el) => ((el as HTMLElement).style.margin = "0"));
+    await saved.getByRole("button", { name: "Back to results" }).click();
+    await panel.getByRole("button", { name: "Rescan page" }).click();
+    await expect
+      .poll(async () => ((await sendToBackground<ScanResult>(helper, { type: "GET_LAST_RESULT", tabId })).data as ScanResult).findings.some((f) => f.ruleId === "LAY-06"))
+      .toBe(false);
+
+    // Compare the saved scan with the current one.
+    await panel.getByRole("button", { name: "Saved Scans" }).click();
+    await saved.getByRole("checkbox", { name: /^Select "Before the fix/ }).check({ force: true });
+    await expect(saved).toContainText("compares with the current scan");
+    await saved.getByRole("button", { name: "Compare", exact: true }).click();
+    const compare = panel.getByTestId("compare-view");
+    await expect(compare.getByRole("heading", { name: "Compare scans" })).toBeVisible();
+    await expect(compare).toContainText("Before: Before the fix");
+    await expect(compare).toContainText("After: Current scan");
+    await expect(compare.getByText(/^Fixed issues \(\d+\)$/)).not.toHaveText("Fixed issues (0)");
+    await expect(compare.locator("details", { hasText: "Fixed issues" })).toContainText("Content inset differs between sections");
+    await expect(compare.getByText("New issues (0)")).toBeVisible();
+    await shot(panel, "panel-compare");
+    await compare.getByRole("button", { name: "Back to saved scans" }).click();
+
+    // Open the saved scan: read-only, with a banner, and the live result comes back afterwards.
+    await saved.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(panel.getByText("Viewing saved scan:")).toBeVisible();
+    const rule = panel.getByTestId("issue-list").getByRole("button", { name: /Content inset differs between sections \(1\)/ });
+    await rule.click();
+    await panel.getByTestId("issue-list").getByRole("button", { name: /Issue number \d+.*holiday-grid/ }).click();
+    await expect(panel.getByTestId("issue-detail")).toContainText("This is a saved scan: it is read-only.");
+    await expect(panel.getByTestId("issue-detail").getByRole("button", { name: /Ignore/ })).toBeHidden();
+    await panel.getByRole("button", { name: "Back to live results" }).click();
+    await expect(panel.getByText("Viewing saved scan:")).toHaveCount(0);
+    await expect(panel.getByTestId("issue-list").getByRole("button", { name: /Content inset differs between sections/ })).toHaveCount(0);
+
+    // A saved scan exports as a report, and can be renamed and deleted.
+    const report = (await sendToBackground<{ filename: string; content: string }>(helper, { type: "SAVED_SCAN_EXPORT", id: list[0].id, format: "html" })).data!;
+    expect(report.filename).toMatch(/_UI_Consistency_Report\.html$/);
+    expect(report.content).toContain("Content inset differs between sections");
+    const renamed = (await sendToBackground<SavedScanMeta>(helper, { type: "SAVED_SCAN_RENAME", id: list[0].id, name: "Sprint 12" })).data!;
+    expect(renamed.name).toBe("Sprint 12");
+    await sendToBackground(helper, { type: "SAVED_SCAN_DELETE", id: list[0].id });
+    expect((await sendToBackground<SavedScanMeta[]>(helper, { type: "SAVED_SCANS_LIST" })).data).toEqual([]);
+    expect((await sendToBackground(helper, { type: "SAVED_SCAN_GET", id: list[0].id })).ok).toBe(false);
+
+    await panel.close();
+    await page.close();
+  });
+
+  test("offers a rescan when a single-page app goes to another route or opens a dialog", async () => {
+    const url = `${baseUrl}/dashboard-clean.html`;
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: "load" });
+    const tabId = await findTabId(helper, url);
+    const panel = await context.newPage();
+    await panel.goto(`chrome-extension://${extensionId}/src/sidepanel/index.html?tabId=${tabId}`);
+    await panel.getByRole("button", { name: "Start scan" }).click();
+    await expect(panel.getByText(/Consistency score \d+ \/ 100/)).toBeVisible();
+    const first = (await sendToBackground<ScanResult>(helper, { type: "GET_LAST_RESULT", tabId })).data as ScanResult;
+
+    // Nothing is said while the page stays as it was scanned, also when the extension draws on it.
+    await panel.getByRole("tab", { name: /^Peer groups/ }).click();
+    await panel.getByRole("button", { name: "Show all on page" }).click();
+    await page.waitForTimeout(1500);
+    await expect(panel.getByText("Page changed")).toHaveCount(0);
+
+    // The app goes to another route without loading a page.
+    await page.evaluate(() => history.pushState({}, "", "#/orders"));
+    await expect(panel.getByText("The page navigated to a new route.")).toBeVisible();
+    await panel.getByRole("button", { name: "Dismiss page changed notice" }).click();
+    await expect(panel.getByText("Page changed")).toHaveCount(0);
+
+    // A dialog opens: the banner offers a rescan, which scans the page as it is now.
+    await page.evaluate(() => {
+      const dialog = document.createElement("div");
+      dialog.setAttribute("role", "dialog");
+      dialog.setAttribute("aria-modal", "true");
+      dialog.style.cssText = "position:fixed; left:200px; top:120px; width:420px; padding:24px; background:#fff; border:1px solid #999";
+      dialog.innerHTML = "<h2>Confirm</h2><p>Are you sure?</p><button type='button'>Yes</button><button type='button'>No</button>";
+      document.body.appendChild(dialog);
+    });
+    await expect(panel.getByText("A dialog opened on the page.")).toBeVisible();
+    await panel.getByRole("status").filter({ hasText: "Page changed" }).getByRole("button", { name: "Rescan" }).click();
+    await expect(panel.getByText("Page changed")).toHaveCount(0);
+    await expect
+      .poll(async () => ((await sendToBackground<ScanResult>(helper, { type: "GET_LAST_RESULT", tabId })).data as ScanResult).elementsScanned)
+      .toBeGreaterThan(first.elementsScanned);
+
+    await panel.close();
     await page.close();
   });
 

@@ -10,7 +10,7 @@
  * Every message carries `type` and, where relevant, `tabId` so the side panel
  * (one per window) can ignore events from other tabs.
  */
-import type { ExportFormat, FindingStatus, ScaleKind, ScanOptions, ScanResult } from "./types";
+import type { ExportFormat, FindingStatus, PageChangeReason, ScaleKind, ScanOptions, ScanResult } from "./types";
 
 export type Message =
   // ---- Scanning ----
@@ -45,6 +45,19 @@ export type Message =
   | { type: "PICKED"; tabId: number; selector: string | null }
   /** Forget the scan result and remove everything the extension drew on the page (panel "Reset"). */
   | { type: "CS_RESET"; tabId: number }
+  /** CS -> UI: the page changed since the scan (a single-page app went to another route, a dialog opened). */
+  | { type: "PAGE_CHANGED"; tabId: number; reason: PageChangeReason }
+  // ---- Saved scans (UI -> SW) ----
+  /** Answers with SavedScanMeta[], newest first. */
+  | { type: "SAVED_SCANS_LIST" }
+  /** Save the last result of the tab under a name; with screenshots the open issues are photographed first. Answers with SavedScanMeta. */
+  | { type: "SAVED_SCAN_SAVE"; tabId: number; name: string; screenshots?: boolean }
+  /** Answers with SavedScan (metadata and the full result). */
+  | { type: "SAVED_SCAN_GET"; id: string }
+  | { type: "SAVED_SCAN_RENAME"; id: string; name: string }
+  | { type: "SAVED_SCAN_DELETE"; id: string }
+  /** Build a report of a saved scan. Answers with the file; the panel saves it. */
+  | { type: "SAVED_SCAN_EXPORT"; id: string; format: ExportFormat }
   // ---- State queries ----
   | { type: "GET_LAST_RESULT"; tabId: number }
   | { type: "RESET_RESULT"; tabId: number }

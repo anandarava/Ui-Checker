@@ -63,6 +63,10 @@ export function useBackgroundEvents(): void {
             store.setProgress(null);
           }
           break;
+        case "PAGE_CHANGED":
+          // Only worth saying while a result of this page is on screen.
+          if (raw.tabId === store.tabId && !store.scanning && (store.viewingSaved ? store.liveResult : store.result)) store.setPageChanged(raw.reason);
+          break;
         case "SETTINGS_CHANGED":
           void refreshSettings();
           break;

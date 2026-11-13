@@ -6,6 +6,7 @@
 import { isMessage, type Message, type Response } from "@shared/messages";
 import { LOADED_FLAG } from "@shared/constants";
 import { clearOverlay, focusFinding, scrollToElement, showBadges, showGroups } from "./overlay/overlay-root";
+import { startSpaObserver } from "./observers/spa-observer";
 import { cancelPicker, startPicker } from "./picker";
 import { forgetGroups, overlayFinding, overlayFindings, overlayGroups, overlayUses, runScan } from "./scanner";
 
@@ -13,6 +14,21 @@ type Flagged = Window & { [LOADED_FLAG]?: boolean };
 
 function describeError(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
+}
+
+/** Stops watching the page for changes; set while a scan result is on screen. */
+let stopWatching: (() => void) | null = null;
+
+/**
+ * After a scan, tells the panel when the page is no longer the page that was
+ * scanned: a single-page app went to another route, a dialog opened, or much
+ * of the content changed.
+ */
+function watchPage(tabId: number): void {
+  stopWatching?.();
+  stopWatching = startSpaObserver((reason) => {
+    chrome.runtime.sendMessage({ type: "PAGE_CHANGED", tabId, reason } satisfies Message).catch(() => undefined);
+  });
 }
 
 function onMessage(raw: unknown, _sender: chrome.runtime.MessageSender, sendResponse: (r: Response) => void): boolean {
@@ -31,8 +47,13 @@ function onMessage(raw: unknown, _sender: chrome.runtime.MessageSender, sendResp
       };
       // What the last scan drew belongs to elements that may be gone.
       clearOverlay();
+      stopWatching?.();
+      stopWatching = null;
       runScan(options, progress).then(
-        (result) => sendResponse({ ok: true, data: result }),
+        (result) => {
+          watchPage(tabId);
+          sendResponse({ ok: true, data: result });
+        },
         (e) => sendResponse({ ok: false, error: describeError(e) }),
       );
       return true; // answered asynchronously
@@ -139,6 +160,8 @@ function onMessage(raw: unknown, _sender: chrome.runtime.MessageSender, sendResp
       return false;
 
     case "CS_RESET":
+      stopWatching?.();
+      stopWatching = null;
       cancelPicker();
       clearOverlay();
       forgetGroups();

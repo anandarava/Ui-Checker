@@ -10,9 +10,12 @@
 import { create } from "zustand";
 import { withFindings } from "@shared/scoring";
 import { getRule } from "@shared/rules";
-import { DEFAULT_SETTINGS, type Finding, type FindingStatus, type RuleCategory, type ScanResult, type Settings, type Severity } from "@shared/types";
+import { DEFAULT_SETTINGS, type Finding, type FindingStatus, type PageChangeReason, type RuleCategory, type SavedScanMeta, type ScanResult, type Settings, type Severity } from "@shared/types";
 
-export type View = "list" | "detail";
+export type View = "list" | "detail" | "saved" | "compare";
+
+/** One side of a comparison: the scan on screen, or a saved one. */
+export type CompareSide = { kind: "current" } | { kind: "saved"; id: string };
 
 /** Result tabs: every finding, one tab per category, needs review, the rules, the peer groups and the design scale. */
 export type ResultTab = "all" | RuleCategory | "review" | "failed" | "passed" | "groups" | "scale";
@@ -74,7 +77,19 @@ interface State {
   scope: ScanScope;
   /** The element picker is running on the page. */
   picking: boolean;
+  /** The page changed since the scan; the panel offers a rescan. */
+  pageChanged: PageChangeReason | null;
+  /** The saved scan on screen (read-only); null while the live result is shown. */
+  viewingSaved: SavedScanMeta | null;
+  /** The live result of the tab, kept while a saved scan is on screen. */
+  liveResult: ScanResult | null;
+  /** The two scans the Compare view shows. */
+  compare: { a: CompareSide; b: CompareSide } | null;
 
+  setPageChanged(reason: PageChangeReason | null): void;
+  openSaved(meta: SavedScanMeta, result: ScanResult): void;
+  exitSaved(): void;
+  setCompare(c: { a: CompareSide; b: CompareSide } | null): void;
   setScope(scope: ScanScope): void;
   setPicking(v: boolean): void;
   setTabId(tabId: number | null): void;
@@ -114,19 +129,48 @@ export const useStore = create<State>((set, get) => ({
   autoHighlight: true,
   scope: { kind: "page" },
   picking: false,
+  pageChanged: null,
+  viewingSaved: null,
+  liveResult: null,
+  compare: null,
+  setPageChanged: (pageChanged) => set({ pageChanged }),
+  openSaved: (meta, result) =>
+    set((s) => ({
+      liveResult: s.viewingSaved ? s.liveResult : s.result,
+      viewingSaved: meta,
+      result,
+      selectedIssueId: null,
+      view: "list",
+      showBadges: false,
+    })),
+  exitSaved: () =>
+    set((s) =>
+      s.viewingSaved
+        ? {
+            viewingSaved: null,
+            result: s.liveResult,
+            liveResult: null,
+            selectedIssueId: null,
+            view: s.view === "detail" ? "list" : s.view,
+          }
+        : {},
+    ),
+  setCompare: (compare) => set({ compare }),
   setScope: (scope) => set({ scope }),
   setPicking: (picking) => set({ picking }),
 
   // Another tab has its own result: drop the one on screen until it is restored for the new tab.
   setTabId: (tabId) => {
     if (get().tabId === tabId) return;
-    set({ tabId, result: null, scanning: false, progress: null, view: "list", selectedIssueId: null, filters: DEFAULT_FILTERS, resultTab: "all", expandedRules: [], showBadges: false, scope: { kind: "page" }, picking: false });
+    set({ tabId, result: null, scanning: false, progress: null, view: "list", selectedIssueId: null, filters: DEFAULT_FILTERS, resultTab: "all", expandedRules: [], showBadges: false, scope: { kind: "page" }, picking: false, pageChanged: null, viewingSaved: null, liveResult: null, compare: null });
   },
   setSettings: (settings) => set({ settings }),
   setScanning: (scanning) => set({ scanning }),
   setProgress: (progress) => set({ progress }),
   setResult: (result) =>
     set((s) => {
+      // A saved scan is on screen: the live result changes behind it.
+      if (s.viewingSaved) return { liveResult: result, scanning: false, progress: null, pageChanged: null };
       const ids = new Set(result?.findings.map((f) => f.id) ?? []);
       const selectedIssueId = s.selectedIssueId && ids.has(s.selectedIssueId) ? s.selectedIssueId : null;
       // A new scan (another scanId) clears what the last one drew on the page.
@@ -137,6 +181,7 @@ export const useStore = create<State>((set, get) => ({
         view: s.view === "detail" && !selectedIssueId ? "list" : s.view,
         scanning: false,
         progress: null,
+        pageChanged: sameScan ? s.pageChanged : null,
         showBadges: sameScan ? s.showBadges : false,
         filters: sameScan ? s.filters : { ...s.filters, groupId: null },
       };

@@ -10,6 +10,8 @@ export function useStartScan(): () => Promise<void> {
     const store = useStore.getState();
     const { tabId, settings, scanning, scope } = store;
     if (tabId === null || scanning) return;
+    // A scan gives a live result: leave the saved scan that is on screen.
+    if (store.viewingSaved) store.exitSaved();
     store.setScanning(true);
     store.setProgress({ percent: 0, stage: "Starting scan" });
     const res = await sendToBackground<unknown>({

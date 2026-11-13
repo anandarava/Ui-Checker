@@ -1,7 +1,7 @@
 /**
  * Service worker: opens the side panel, injects the content script, starts
- * scans, keeps the last result of every tab (chrome.storage.session) and the
- * settings (chrome.storage.sync).
+ * scans, keeps the last result of every tab (chrome.storage.session), the
+ * settings (chrome.storage.sync) and the saved scans (storage.ts).
  */
 import { isMessage, isScanResult, sendToTab, type Message, type Response } from "@shared/messages";
 import { STORAGE_RESULT_PREFIX, STORAGE_SETTINGS, STORAGE_STATUS_PREFIX, STORAGE_TOKENS } from "@shared/constants";
@@ -10,6 +10,7 @@ import { DEFAULT_SETTINGS, type DesignTokens, type FindingStatus, type ScanResul
 import { captureEvidence } from "./evidence";
 import { buildReport } from "./exporters";
 import { ensureContentScript } from "./injector";
+import { deleteSavedScan, getSavedScan, listSavedScans, renameSavedScan, saveScan } from "./storage";
 
 const resultKey = (tabId: number) => `${STORAGE_RESULT_PREFIX}${tabId}`;
 
@@ -199,6 +200,34 @@ async function handle(msg: Message): Promise<Response> {
       return setStatus(msg.tabId, msg.fingerprints, msg.status, msg.reason);
     case "EXPORT_REPORT":
       return exportReport(msg);
+    case "SAVED_SCANS_LIST":
+      return { ok: true, data: await listSavedScans() };
+    case "SAVED_SCAN_SAVE": {
+      let result = await loadResult(msg.tabId);
+      if (!result) return { ok: false, error: "There is no scan result for this tab. Scan the page first." };
+      // Screenshots are taken now, while the page is open, so the saved scan exports with them.
+      if (msg.screenshots) {
+        ({ result } = await captureEvidence(msg.tabId, result, (done, total) => {
+          broadcast({ type: "SCAN_PROGRESS", tabId: msg.tabId, percent: total === 0 ? 100 : Math.round((100 * done) / total), stage: `Capturing screenshot ${Math.min(done + 1, total)} of ${total}` });
+        }));
+      }
+      return { ok: true, data: await saveScan(msg.name, result) };
+    }
+    case "SAVED_SCAN_GET": {
+      const saved = await getSavedScan(msg.id);
+      return saved ? { ok: true, data: saved } : { ok: false, error: "That saved scan no longer exists." };
+    }
+    case "SAVED_SCAN_RENAME":
+      return { ok: true, data: await renameSavedScan(msg.id, msg.name) };
+    case "SAVED_SCAN_DELETE":
+      await deleteSavedScan(msg.id);
+      return { ok: true };
+    case "SAVED_SCAN_EXPORT": {
+      const saved = await getSavedScan(msg.id);
+      if (!saved) return { ok: false, error: "That saved scan no longer exists." };
+      const settings = await getSettings();
+      return { ok: true, data: buildReport(msg.format, saved.result, { preparedBy: settings.reportPreparedBy, organisation: settings.reportOrganisation }) };
+    }
     case "GET_SETTINGS":
       return { ok: true, data: await getSettings() };
     default:
@@ -208,7 +237,7 @@ async function handle(msg: Message): Promise<Response> {
 }
 
 /** Messages the service worker answers. Everything else is a broadcast meant for the UI. */
-const REQUESTS = new Set<Message["type"]>(["SCAN_START", "GET_LAST_RESULT", "RESET_RESULT", "GET_SETTINGS", "SET_STATUS", "EXPORT_REPORT"]);
+const REQUESTS = new Set<Message["type"]>(["SCAN_START", "GET_LAST_RESULT", "RESET_RESULT", "GET_SETTINGS", "SET_STATUS", "EXPORT_REPORT", "SAVED_SCANS_LIST", "SAVED_SCAN_SAVE", "SAVED_SCAN_GET", "SAVED_SCAN_RENAME", "SAVED_SCAN_DELETE", "SAVED_SCAN_EXPORT"]);
 
 chrome.runtime.onMessage.addListener((raw: unknown, _sender, sendResponse: (r: Response) => void) => {
   if (!isMessage(raw) || !REQUESTS.has(raw.type)) return false;

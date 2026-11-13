@@ -286,6 +286,32 @@ export interface ScanResult {
   warnings: string[];
 }
 
+/** What the list of saved scans shows; the full result is loaded only when a scan is opened. */
+export interface SavedScanMeta {
+  id: string;
+  name: string;
+  url: string;
+  title: string;
+  /** When the scan ran. */
+  scannedAt: string;
+  /** When it was saved. */
+  savedAt: string;
+  score: number;
+  summary: ScanSummary;
+  tolerancePreset: TolerancePreset;
+  scope: ScanOptions["scope"];
+  /** Open issues (not for review, not excluded). */
+  issueCount: number;
+}
+
+export interface SavedScan {
+  meta: SavedScanMeta;
+  result: ScanResult;
+}
+
+/** Why the panel offers a rescan: the page went to another route, opened a dialog, or changed a lot. */
+export type PageChangeReason = "route" | "dialog" | "dom";
+
 export interface Settings {
   /** Name shown as "Prepared by" on HTML reports. */
   reportPreparedBy: string;

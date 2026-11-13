@@ -3,8 +3,8 @@
  * peer groups and reports the ones that differ from the others. Rules read the
  * snapshot and the groups only; they never touch the live DOM.
  *
- * Built: the core rules of Phase 3A. A rule without a check is not run and is
- * reported as "notImplemented" by the scanner.
+ * A rule without a check is not run and is reported as "notImplemented" by
+ * the scanner.
  */
 import { getRule, toleranceFor } from "@shared/rules";
 import { PRESET_FACTOR, type FindingKind, type FindingType, type ScanOptions, type Severity } from "@shared/types";
@@ -13,6 +13,8 @@ import type { RawGroup } from "../grouping";
 import type { ElementSnapshot } from "../snapshot";
 import type { Verdict } from "./compare";
 import { runLayoutRules } from "./layout";
+import { runRowRules } from "./rows";
+import { runStructureRules } from "./structure";
 import { runTypographyRules } from "./typography";
 
 /** A finding before the element is described for the UI. */
@@ -100,6 +102,8 @@ export function runRules(elements: ElementSnapshot[], groups: RawGroup[], option
 
   runTypographyRules(context);
   runLayoutRules(context);
+  runRowRules(context);
+  runStructureRules(context);
 
   // Document order, so the list reads top to bottom.
   findings.sort((a, b) => a.element - b.element || a.ruleId.localeCompare(b.ruleId));

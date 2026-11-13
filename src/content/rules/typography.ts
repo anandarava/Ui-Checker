@@ -1,6 +1,7 @@
 /**
  * Typography rules: TYP-01 font family, TYP-02 font size, TYP-03 font weight,
- * TYP-05 text colour and link-versus-plain-text.
+ * TYP-04 line height, TYP-05 text colour and link-versus-plain-text, TYP-06
+ * text alignment.
  *
  * They compare the members of a peer group that carry text of their own.
  * Members in a different state (selected tab, current navigation item) and the
@@ -15,6 +16,7 @@
 import type { RawFinding, RuleContext } from "./index";
 import { bucketLabels, bucketNumbers, judge, px, valueCounts, type Bucket, type Entry, type Verdict } from "./compare";
 import { deltaE } from "./color";
+import { textAlignment } from "./rows";
 
 type Pending = Omit<RawFinding, "severity" | "type"> & { severity: RawFinding["severity"] };
 
@@ -65,6 +67,33 @@ function bucketColours(entries: Array<Entry<string>>, tolerance: number): Array<
   return buckets;
 }
 
+interface LineHeight {
+  /** In px; null when the font decides ("normal"). */
+  px: number | null;
+  /** Line height divided by font size. */
+  ratio: number | null;
+}
+
+/**
+ * Buckets line heights. Two are the same when they are the same in px, or the
+ * same multiple of the font size: a larger title with the same 1.4 line
+ * height is not a different line height.
+ */
+function bucketLineHeights(entries: Array<Entry<LineHeight>>, tolerance: number): Array<Bucket<LineHeight>> {
+  const same = (a: LineHeight, b: LineHeight): boolean => {
+    if (a.px === null || b.px === null) return a.px === b.px;
+    return Math.abs(a.px - b.px) <= tolerance || Math.abs((a.ratio ?? 0) - (b.ratio ?? 0)) <= 0.05;
+  };
+  const label = (v: LineHeight): string => (v.px === null ? "normal" : `${px(v.px)} (${Math.round((v.ratio ?? 0) * 100) / 100} × the font size)`);
+  const buckets: Array<Bucket<LineHeight>> = [];
+  for (const entry of entries) {
+    const bucket = buckets.find((b) => same(b.entries[0].value, entry.value));
+    if (bucket) bucket.entries.push(entry);
+    else buckets.push({ label: label(entry.value), entries: [entry] });
+  }
+  return buckets;
+}
+
 export function runTypographyRules(ctx: RuleContext): void {
   const { elements, groups, facts } = ctx;
   const isLink = (i: number): boolean => elements[i].tag === "a" || elements[i].role === "link";
@@ -91,9 +120,31 @@ export function runTypographyRules(ctx: RuleContext): void {
     run<string>({ ruleId: "TYP-01", property: "font family", buckets: (e) => bucketLabels(e, (v) => v) }, (i) => elements[i].style.fontFamily.toLowerCase());
     run<number>({ ruleId: "TYP-02", property: "font size", buckets: (e) => bucketNumbers(e, ctx.tolerance("TYP-02"), px) }, (i) => elements[i].style.fontSize);
     run<number>({ ruleId: "TYP-03", property: "font weight", buckets: (e) => bucketLabels(e, String) }, (i) => elements[i].style.fontWeight);
+    run<LineHeight>({ ruleId: "TYP-04", property: "line height", buckets: (e) => bucketLineHeights(e, ctx.tolerance("TYP-04")) }, (i) => {
+      const { lineHeight, fontSize } = elements[i].style;
+      return { px: lineHeight, ratio: lineHeight !== null && fontSize > 0 ? lineHeight / fontSize : null };
+    });
     run<string>({ ruleId: "TYP-05", property: "text colour", buckets: (e) => bucketColours(e, ctx.tolerance("TYP-05")) }, (i) => elements[i].style.color);
     // A link where its peers have plain text (or the other way round), whatever its colour.
     run<string>({ ruleId: "TYP-05", property: "kind of element", buckets: (e) => bucketLabels(e, (v) => v) }, (i) => (isLink(i) ? "link" : "plain text"));
+
+    // TYP-06: where the text sits in its box, measured from the text. Only members whose box is wider
+    // than their text can be told apart; the cells of a table are checked per column by LAY-09.
+    if (ctx.runs("TYP-06")) {
+      const tolerance = ctx.tolerance("TYP-06");
+      const aligned = compared.flatMap((el) => {
+        const parent = elements[el].parent;
+        const inCell = facts.isCell(el) || (parent >= 0 && (facts.isCell(parent) || (elements[parent].parent >= 0 && facts.isCell(elements[parent].parent))));
+        if (inCell || elements[el].children.length > 0 || ctx.reported("TYP-06", el)) return [];
+        const found = textAlignment(elements[el], tolerance);
+        return found ? [{ el, value: found.align as string }] : [];
+      });
+      if (aligned.length >= 2) {
+        ctx.looked("TYP-06");
+        const check: Check<string> = { ruleId: "TYP-06", property: "text alignment", buckets: (e) => bucketLabels(e, (v) => v) };
+        pending.push(...findingsOf(ctx, check, g, judge(check.buckets(aligned)), aligned.length));
+      }
+    }
 
     const byElement = new Map<number, Pending[]>();
     for (const finding of pending) byElement.set(finding.element, [...(byElement.get(finding.element) ?? []), finding]);

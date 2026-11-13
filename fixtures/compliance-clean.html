@@ -11,7 +11,16 @@
   grouped as a "level group". Layout only: product name, labels and numbers are
   made up.
 -->
-<script type="application/json" id="expected">[]</script>
+<script type="application/json" id="expected">[
+  {
+    "id": "D10",
+    "rule": "GRP-02",
+    "review": true,
+    "both": true,
+    "target": "nav-first",
+    "note": "Chevron on seven of thirteen navigation items: the ones that open a sub-menu (intentional)"
+  }
+]</script>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 16px; line-height: 1.4; color: #1c2b33; background: #fff; }
@@ -37,8 +46,9 @@
   .find { width: 338px; height: 36px; border: 1px solid #bbb; border-radius: 4px; padding: 0 12px; font: inherit; }
   .help { height: 36px; padding: 0 18px; border: 1px solid #15803d; border-radius: 4px; background: #fff; color: #15803d; font: inherit; font-weight: 700; }
 
-  .content { display: grid; grid-template-columns: 617px 617px; gap: 22px; justify-content: center; padding: 22px 0; align-items: start; }
+  .content { display: grid; grid-template-columns: 617px 617px; gap: 22px; justify-content: center; padding: 22px 0; align-items: stretch; }
   .col { display: flex; flex-direction: column; gap: 20px; }
+  .col > .card:last-child { flex: 1; }
   .card { border: 1px solid #d5d9dc; border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); background: #fff; }
   .card-head { display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 0 21px; background: #f1f2f3; }
   .card-title { font-size: 20px; font-weight: 700; }
@@ -84,7 +94,7 @@
       </div>
     </div>
     <nav aria-label="Main">
-      <a class="nav-item" href="#" aria-current="page"><span class="nav-icon"></span><span class="nav-label">Company Dashboard</span></a>
+      <a class="nav-item" href="#" aria-current="page" data-fx="nav-first"><span class="nav-icon"></span><span class="nav-label">Company Dashboard</span></a>
       <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Control Room</span><span class="chev"></span></a>
       <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Conflict Check</span></a>
       <a class="nav-item" href="#"><span class="nav-icon"></span><span class="nav-label">Communications</span><span class="chev"></span></a>

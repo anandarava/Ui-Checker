@@ -90,7 +90,7 @@ for (const name of pages) {
         elements: snapshot.elements.length,
         groups: groups.length,
         expected: expected.map((e) => `${e.id} ${e.rule ?? "-"} <${e.target}>${e.review ? " (review)" : ""}`),
-        findings: run.findings.map((f) => `${f.ruleId} ${f.severity.padEnd(6)} ${f.kind.padEnd(10)} ${describe(f.element)}\n        ${f.message}`),
+        findings: run.findings.map((f) => `${f.ruleId} ${f.severity.padEnd(6)} ${(f.type === "Review" ? "review" : f.kind).padEnd(10)} ${describe(f.element)}\n        ${f.message}`),
       };
     }, preset);
     console.log(`=== ${name}: ${result.findings.length} findings, ${result.elements} elements, ${result.groups} groups, rules ran in ${result.ms} ms`);

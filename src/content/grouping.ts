@@ -44,6 +44,8 @@ export interface RawGroup {
    * properties at once. -1 when there is none.
    */
   guessedActive: number;
+  /** True when every member is a form control, or a box of controls, in one row (a toolbar, a button group). */
+  controls: boolean;
 }
 
 export interface GroupingOptions {
@@ -410,13 +412,16 @@ export function findPeerGroups(elements: ElementSnapshot[], options: GroupingOpt
   };
 
   /** Adds a group; returns its index, or the index of the group with the same members. */
-  const emit = (kind: PeerGroupKind, list: number[], parent: number, label: string, core?: number[]): number => {
+  const emit = (kind: PeerGroupKind, list: number[], parent: number, label: string, core?: number[], controlRow = false): number => {
     const members = Array.from(new Set(list)).sort((a, b) => a - b);
     const key = members.join(",");
     const existing = seen.get(key);
     if (existing !== undefined) return existing;
     const index = groups.length;
-    groups.push({ kind, members, parent, label, core: core ? core.slice().sort((a, b) => a - b) : members, guessedActive: guessActive(members) });
+    const first = elements[members[0]];
+    const inOneRow = members.every((m) => Math.min(elements[m].box.y + elements[m].box.height, first.box.y + first.box.height) - Math.max(elements[m].box.y, first.box.y) >= Math.min(elements[m].box.height, first.box.height) / 2);
+    const controls = inOneRow && (controlRow || members.every(isControl));
+    groups.push({ kind, members, parent, label, core: core ? core.slice().sort((a, b) => a - b) : members, guessedActive: guessActive(members), controls });
     seen.set(key, index);
     for (const m of members) {
       const of = memberOf.get(m);
@@ -661,7 +666,7 @@ export function findPeerGroups(elements: ElementSnapshot[], options: GroupingOpt
     }
     for (const row of rows) {
       if (row.length < minSize || !row.some(isControl) || covered(row)) continue;
-      emit("level", row, parent, `${row.length} controls in a row`);
+      emit("level", row, parent, `${row.length} controls in a row`, undefined, true);
     }
   };
 

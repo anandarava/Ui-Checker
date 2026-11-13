@@ -16,13 +16,14 @@ extension, so testers who know one already know the other.
 
 ## Status
 
-**Phases 0 to 2 and Phase 3A are done.** The scan measures every visible
-element of the page, finds the *peer groups* (the elements that should look the
-same) and runs the **ten core rules** on them: font family, size, weight and
-colour, inner padding, gaps, edges, sizes and section insets. The side panel
-lists the findings and the groups, and can outline the groups on the page. The
-other rules are reported as "Not built yet". See [PLAN.md](PLAN.md) for the
-phases.
+**Phases 0 to 3 are done.** The scan measures every visible element of the
+page, finds the *peer groups* (the elements that should look the same) and runs
+**all 22 rules** on them: typography, layout and spacing, group structure and
+box style. Differences that are often intentional (a colour on its own, a
+featured card, a sort icon on some columns) are listed for review instead of as
+defects. The side panel lists the findings and the groups in a plain view, and
+can outline the groups on the page; the full results UI and the reports are
+Phase 4. See [PLAN.md](PLAN.md) for the phases.
 
 | Phase | What | Status |
 |---|---|---|
@@ -30,8 +31,8 @@ phases.
 | 1 | Page snapshot engine | Done |
 | 2 | Peer grouping | Done |
 | 3A | Consistency rules: the ten core rules | Done |
-| 3B | Consistency rules: second wave | Next |
-| 4 | Results UI and reports | |
+| 3B | Consistency rules: second wave | Done |
+| 4 | Results UI and reports | Next |
 | 5 | Page-wide design-scale audit | |
 | 6 | Site scan, CI package, cross-page checks | |
 | 7 | AI assist (optional, off by default) | |

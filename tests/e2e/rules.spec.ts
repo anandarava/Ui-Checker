@@ -2,9 +2,11 @@
  * The consistency rules against real layout (PLAN.md, Phase 3A).
  *
  * Every fixture lists its seeded defects in its page. On the defects page each
- * defect of a built rule must be reported, by that rule, on the element the
- * defect names (or inside it). On the clean page nothing may be reported, under
- * any tolerance preset: any finding there is a bug in the rules.
+ * defect must be reported, by its rule, on the element the defect names (or
+ * inside it): as a definite finding, or for review when the fixture says so.
+ * On the clean page no definite finding may be reported, under any tolerance
+ * preset: any such finding is a bug in the rules. The only findings allowed
+ * there are the ones the fixture lists as intentional, for review.
  */
 import { test, expect } from "@playwright/test";
 import type { TolerancePreset } from "@shared/types";
@@ -25,9 +27,15 @@ const ALSO_SEEDED: Record<string, Record<string, string>> = {
   compliance: {
     // D1 gives three section titles three sizes; the manifest names one of them.
     "title-chart": "D1",
-    // D4 changes the gaps of both columns; the manifest names the right one. The left column has no data-fx.
-    "": "D4",
   },
+};
+
+/** Rules whose finding lands on an element without a data-fx name, because the defect changes more than its target. */
+const UNNAMED: Record<string, string[]> = {
+  // D4 changes the gaps of both columns; the manifest names the right one.
+  compliance: ["LAY-03"],
+  // D6 moves the location item of both event cards; the manifest names the first.
+  dashboard: ["LAY-07"],
 };
 
 function describe(f: FoundFinding): string {
@@ -35,21 +43,23 @@ function describe(f: FoundFinding): string {
 }
 
 test.describe("rules", () => {
-  test("ten core rules are built", () => {
-    expect(Array.from(BUILT).sort()).toEqual(["LAY-01", "LAY-02", "LAY-03", "LAY-04", "LAY-05", "LAY-06", "TYP-01", "TYP-02", "TYP-03", "TYP-05"]);
+  test("every rule of the catalogue is built", () => {
+    expect(BUILT.size).toBe(catalogue.rules.length);
+    expect(BUILT.size).toBe(22);
   });
 
   for (const name of FIXTURES) {
     test(`${name}-defects: every seeded defect of a built rule is found`, async ({ page }) => {
       await page.goto(fixtureUrl(`${name}-defects`));
       const { findings, expected } = await findFindings(page);
-      const seeded = expected.filter((e) => e.rule !== null && BUILT.has(e.rule) && !e.review);
+      const seeded = expected.filter((e) => e.rule !== null && BUILT.has(e.rule));
       expect(seeded.length, "the fixture must seed at least one defect of a built rule").toBeGreaterThan(0);
 
       for (const defect of seeded) {
         const hit = findings.find((f) => f.ruleId === defect.rule && f.within.includes(defect.target));
         expect(hit, `${defect.id}: ${defect.rule} must report <${defect.target}>. Reported:\n${findings.map(describe).join("\n")}`).toBeDefined();
-        expect(hit?.type).toBe("Definite");
+        // A defect the fixture calls intentional is listed for review; every other one is a definite finding.
+        expect(hit?.type, `${defect.id} ${defect.rule}`).toBe(defect.review ? "Review" : "Definite");
       }
     });
 
@@ -59,7 +69,7 @@ test.describe("rules", () => {
       const targets = new Set(expected.map((e) => e.target));
       const also = ALSO_SEEDED[name] ?? {};
       for (const f of findings) {
-        const seeded = f.within.some((fx) => targets.has(fx) || fx in also) || (f.within.length === 0 && "" in also && f.ruleId === "LAY-03");
+        const seeded = f.within.some((fx) => targets.has(fx) || fx in also) || (f.within.length === 0 && (UNNAMED[name] ?? []).includes(f.ruleId));
         expect(seeded, `Not a seeded defect: ${describe(f)}`).toBe(true);
       }
       // One finding per rule and element.
@@ -68,10 +78,19 @@ test.describe("rules", () => {
     });
 
     for (const preset of PRESETS) {
-      test(`${name}-clean: no finding (${preset})`, async ({ page }) => {
+      test(`${name}-clean: no definite finding (${preset})`, async ({ page }) => {
         await page.goto(fixtureUrl(`${name}-clean`));
-        const { findings, checked } = await findFindings(page, preset);
-        expect(findings.map(describe)).toEqual([]);
+        const { findings, expected, checked } = await findFindings(page, preset);
+        expect(findings.filter((f) => f.type === "Definite").map(describe)).toEqual([]);
+        // For review: only what the fixture lists as an intentional difference, and all of it.
+        const intended = expected.filter((e) => e.both && e.review);
+        const review = findings.filter((f) => f.type === "Review");
+        for (const f of review) {
+          expect(intended.some((e) => e.rule === f.ruleId && f.within.includes(e.target)), `Not listed by the fixture: ${describe(f)}`).toBe(true);
+        }
+        for (const e of intended) {
+          expect(review.some((f) => f.ruleId === e.rule && f.within.includes(e.target)), `${e.id}: ${e.rule} must list <${e.target}> for review`).toBe(true);
+        }
         // "No finding" must mean the rules looked and found nothing.
         expect(Object.values(checked).reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
       });

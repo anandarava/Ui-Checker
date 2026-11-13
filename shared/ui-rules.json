@@ -51,7 +51,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "TYP-05",
@@ -81,7 +81,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "LAY-01",
@@ -186,7 +186,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "LAY-08",
@@ -201,7 +201,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "LAY-09",
@@ -216,7 +216,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "LAY-10",
@@ -231,7 +231,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "GRP-01",
@@ -242,7 +242,7 @@
       "fix": "Remove the stray element, or make it a proper member of the group.",
       "severity": "High",
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "GRP-02",
@@ -253,7 +253,7 @@
       "fix": "Add the missing part, or remove it from all the items.",
       "severity": "Medium",
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "GRP-03",
@@ -268,7 +268,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "BOX-01",
@@ -283,7 +283,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "BOX-02",
@@ -294,7 +294,7 @@
       "fix": "Use the same border and shadow as the peers.",
       "severity": "Low",
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "BOX-03",
@@ -309,7 +309,7 @@
         "unit": "deltaE"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     }
   ]
 }

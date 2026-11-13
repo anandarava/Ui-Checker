@@ -188,6 +188,8 @@ describe("layout rules", () => {
     return `<div id="c${n}" data-box="${x} 0 200 ${height}" style="${style}"><p data-box="${inner}">Text</p></div>`;
   };
 
+  const PADDING = ["LAY-01", "LAY-02"];
+
   it("LAY-01 reports a container padded differently from its peers", () => {
     const found = scan(`<main>${card(1, 0, [16, 16, 16, 16])}${card(2, 220, [16, 16, 16, 16])}${card(3, 440, [24, 24, 24, 24])}${card(4, 660, [16, 16, 16, 16])}</main>`);
     expect(found.keys).toEqual(["LAY-01 c3"]);
@@ -197,11 +199,11 @@ describe("layout rules", () => {
   it("LAY-01 ignores a side where the content does not sit against the padding", () => {
     // The third card is taller than its content: the free space at the bottom is not padding.
     const tall = card(3, 440, [16, 16, 16, 16]).replace('data-box="440 0 200 100"', 'data-box="440 0 200 160"');
-    expect(scan(`<main>${card(1, 0, [16, 16, 16, 16])}${card(2, 220, [16, 16, 16, 16])}${tall}</main>`).keys).toEqual([]);
+    expect(scan(`<main>${card(1, 0, [16, 16, 16, 16])}${card(2, 220, [16, 16, 16, 16])}${tall}</main>`, "normal", PADDING).keys).toEqual([]);
   });
 
   it("LAY-02 reports the container that is lopsided while its peers are even", () => {
-    const found = scan(`<main>${card(1, 0, [20, 20, 20, 20])}${card(2, 220, [20, 20, 68, 20], 148)}${card(3, 440, [20, 20, 20, 20])}</main>`);
+    const found = scan(`<main>${card(1, 0, [20, 20, 20, 20])}${card(2, 220, [20, 20, 68, 20], 148)}${card(3, 440, [20, 20, 20, 20])}</main>`, "normal", PADDING);
     expect(found.keys).toEqual(["LAY-02 c2"]);
     expect(finding(found, "LAY-02", "c2")).toMatchObject({ actual: "bottom 69px, top 21px", property: "top and bottom padding" });
   });
@@ -293,5 +295,202 @@ describe("layout rules", () => {
     expect(scan(row, "strict", ["LAY-04"]).keys).toEqual(["LAY-04 p3"]);
     expect(scan(row, "normal", ["LAY-04"]).keys).toEqual(["LAY-04 p3"]);
     expect(scan(row, "relaxed", ["LAY-04"]).keys).toEqual([]);
+  });
+});
+
+describe("second wave: typography", () => {
+  it("TYP-04 reports a different line height, but not the same multiple of a larger font", () => {
+    const found = scan(items({ 1: "line-height:22.4px", 2: "line-height:22.4px", 3: "line-height:16px", 4: "line-height:22.4px", 5: "line-height:22.4px" }), "normal", ["TYP-04"]);
+    expect(found.keys).toEqual(["TYP-04 t3"]);
+    expect(finding(found, "TYP-04", "t3")).toMatchObject({ severity: "Low", actual: "16px (1 × the font size)" });
+    // 18px text with a 25.2px line height is the same 1.4 as 16px text with 22.4px.
+    const scaled = items({ 1: "line-height:22.4px", 2: "line-height:22.4px", 3: "font-size:18px; line-height:25.2px", 4: "line-height:22.4px", 5: "line-height:22.4px" });
+    expect(scan(scaled, "normal", ["TYP-04"]).keys).toEqual([]);
+  });
+
+  it("TYP-06 reports text that sits elsewhere in its box than the text of its peers", () => {
+    // Boxes of 200px; the text is 60px wide, at the left, the right or in the middle.
+    const cell = (n: number, textX: number): string => `<li><span id="t${n}" data-box="0 ${n * 30} 200 20" data-text-box="${textX} ${n * 30} 60 20" style="${TEXT}">Name</span><b style="${BOX}"></b></li>`;
+    const found = scan(`<ul>${cell(1, 70)}${cell(2, 70)}${cell(3, 0)}${cell(4, 70)}${cell(5, 70)}</ul>`, "normal", ["TYP-06"]);
+    expect(found.keys).toEqual(["TYP-06 t3"]);
+    expect(finding(found, "TYP-06", "t3")).toMatchObject({ actual: "left", expected: "centre" });
+    // Text that fills its box says nothing about alignment.
+    const full = (n: number): string => `<li><span id="t${n}" data-box="0 ${n * 30} 60 20" data-text-box="0 ${n * 30} 60 20" style="${TEXT}">Name</span><b style="${BOX}"></b></li>`;
+    expect(scan(`<ul>${cell(1, 70)}${cell(2, 70)}${full(3)}${cell(4, 70)}</ul>`, "normal", ["TYP-06"]).keys).toEqual([]);
+  });
+});
+
+describe("second wave: rows, columns and tables", () => {
+  it("LAY-07 reports an item that is off the line its row is centred on", () => {
+    const row = (iconY: number): string => `
+      <div style="display:flex; align-items:center" data-box="0 0 300 40">
+        <span id="num" data-box="0 10 20 20">33</span>
+        <span id="text" data-box="30 0 200 40">Two lines of text</span>
+        <span id="icon" data-box="250 ${iconY} 10 10" style="${BOX}"></span>
+      </div>`;
+    const found = scan(row(6), "normal", ["LAY-07"]);
+    expect(found.keys).toEqual(["LAY-07 icon"]);
+    expect(finding(found, "LAY-07", "icon").message).toBe("This item sits 9px higher than the 2 other items of its row.");
+    expect(scan(row(15), "normal", ["LAY-07"]).keys).toEqual([]);
+  });
+
+  it("LAY-07 reports an item moved out of a row of items of one height", () => {
+    const item = (n: number, y: number): string => `<span id="i${n}" data-box="${n * 100} ${y} 90 24" style="${BOX}"><b>x</b></span>`;
+    const row = (y: number): string => `<div style="display:grid" data-box="0 0 400 30">${item(1, 0)}${item(2, y)}${item(3, 0)}</div>`;
+    expect(scan(row(3), "normal", ["LAY-07"]).keys).toEqual(["LAY-07 i2"]);
+    expect(scan(row(1), "normal", ["LAY-07"]).keys).toEqual([]);
+  });
+
+  it("LAY-07 reports an icon that is not centred on the text next to it", () => {
+    const label = (iconY: number): string => `<p id="label" data-box="0 0 200 20" data-text-box="24 2 100 16" style="${TEXT}"><i id="icon" data-box="0 ${iconY} 16 16" style="${BOX}"></i>Settings</p>`;
+    expect(scan(label(8), "normal", ["LAY-07"]).keys).toEqual(["LAY-07 icon"]);
+    expect(scan(label(2), "normal", ["LAY-07"]).keys).toEqual([]);
+  });
+
+  it("LAY-08 reports the column of cards that ends above its peer, and not plain lists", () => {
+    const column = (id: string, x: number, height: number, drawn: boolean): string =>
+      `<div id="${id}" data-box="${x} 0 300 ${height}"><section data-box="${x} 0 300 ${height}" style="${drawn ? BOX : ""}"><h2>Title</h2></section></div>`;
+    const found = scan(`<main style="display:flex">${column("left", 0, 400, true)}${column("right", 320, 620, true)}</main>`, "normal", ["LAY-08"]);
+    expect(found.keys).toEqual(["LAY-08 left"]);
+    expect(finding(found, "LAY-08", "left")).toMatchObject({ kind: "pair", severity: "Low", actual: "ends 220px above its peer" });
+    expect(scan(`<main style="display:flex">${column("left", 0, 400, true)}${column("right", 320, 404, true)}</main>`, "normal", ["LAY-08"]).keys).toEqual([]);
+    // Two lists of links of different lengths are not cards.
+    expect(scan(`<main style="display:flex">${column("left", 0, 400, false)}${column("right", 320, 620, false)}</main>`, "normal", ["LAY-08"]).keys).toEqual([]);
+  });
+
+  it("LAY-09 reports a header that is not aligned like the cells of its column", () => {
+    // Columns of 200px at x=0 and x=200. Cell text: 80px wide, left in column 1, right in column 2.
+    const table = (header2X: number, oddCell = false): string => {
+      const rows = [1, 2, 3].map((n) => {
+        const second = oddCell && n === 2 ? 210 : 310;
+        return `<tr><td id="r${n}c1" data-box="0 ${n * 30} 200 30" data-text-box="10 ${n * 30} 80 20" style="padding-left:10px; padding-right:10px">Name</td>` +
+          `<td id="r${n}c2" data-box="200 ${n * 30} 200 30" data-text-box="${second} ${n * 30} 80 20" style="padding-left:10px; padding-right:10px">12.50</td></tr>`;
+      });
+      return `<table><thead><tr>
+        <th id="h1" data-box="0 0 200 30" data-text-box="10 0 60 20" style="padding-left:10px; padding-right:10px">Name</th>
+        <th id="h2" data-box="200 0 200 30" data-text-box="${header2X} 0 60 20" style="padding-left:10px; padding-right:10px">Price</th>
+      </tr></thead><tbody>${rows.join("")}</tbody></table>`;
+    };
+    // Header 2 at the left, its cells at the right.
+    const found = scan(table(210), "normal", ["LAY-09"]);
+    expect(found.keys).toEqual(["LAY-09 h2"]);
+    expect(finding(found, "LAY-09", "h2").message).toBe("This header is aligned left, but the cells of its column are aligned right.");
+    // Header 2 at the right, like its cells.
+    expect(scan(table(330), "normal", ["LAY-09"]).keys).toEqual([]);
+    // One cell of column 2 at the left: the column mixes alignments.
+    expect(scan(table(330, true), "normal", ["LAY-09"]).keys).toEqual(["LAY-09 r2c2"]);
+  });
+
+  it("LAY-09 reports a header whose text starts a few pixels off its column", () => {
+    const row = (n: number): string => `<tr><td data-box="0 ${n * 30} 200 30" data-text-box="24 ${n * 30} 80 20" style="padding-left:24px">Name</td></tr>`;
+    const table = (pad: number): string => `<table><thead><tr><th id="h" data-box="0 0 200 30" data-text-box="${pad} 0 60 20" style="padding-left:${pad}px">Name</th></tr></thead><tbody>${row(1)}${row(2)}${row(3)}</tbody></table>`;
+    const found = scan(table(30), "normal", ["LAY-09"]);
+    expect(found.keys).toEqual(["LAY-09 h"]);
+    expect(finding(found, "LAY-09", "h").actual).toBe("6px to the right of them");
+    expect(scan(table(24), "normal", ["LAY-09"]).keys).toEqual([]);
+  });
+
+  it("LAY-10 reports a control of another height in its row, and uneven gaps between controls", () => {
+    const toolbar = (height: number, x3 = 220): string => `
+      <div id="bar" data-box="0 0 600 50">
+        <button id="a" data-box="0 0 100 46" style="${BOX}">One</button>
+        <button id="b" data-box="110 0 100 ${height}" style="${BOX}">Two</button>
+        <button id="c" data-box="${x3} 0 100 46" style="${BOX}">Three</button>
+      </div>`;
+    const found = scan(toolbar(50), "normal", ["LAY-10"]);
+    expect(found.keys).toEqual(["LAY-10 b"]);
+    expect(finding(found, "LAY-10", "b")).toMatchObject({ actual: "50px", expected: "46px", property: "height" });
+    expect(scan(toolbar(46), "normal", ["LAY-10"]).keys).toEqual([]);
+    // Gaps of 10px and 16px between the controls of one row.
+    const gaps = scan(toolbar(46, 226), "normal", ["LAY-03", "LAY-10"]);
+    expect(gaps.keys).toEqual(["LAY-10 bar"]);
+  });
+});
+
+describe("second wave: group structure and box style", () => {
+  it("GRP-01 reports a stray shape among the controls of a group, not a thin dividing line", () => {
+    const group = (stray: string): string => `<div role="group" data-box="0 0 200 40"><button data-box="0 0 60 40">Grid</button>${stray}<button data-box="100 0 60 40">List</button></div>`;
+    const found = scan(group(`<span id="dot" data-box="70 13 14 14" style="${BOX}"></span>`), "normal", ["GRP-01"]);
+    expect(found.keys).toEqual(["GRP-01 dot"]);
+    expect(finding(found, "GRP-01", "dot").severity).toBe("High");
+    expect(scan(group(`<span id="line" data-box="80 0 1 40" style="${BOX}"></span>`), "normal", ["GRP-01"]).keys).toEqual([]);
+    expect(scan(group(""), "normal", ["GRP-01"]).keys).toEqual([]);
+  });
+
+  /** Navigation items; `icons` and `chevrons` say which items have that part. */
+  const nav = (count: number, icons: (n: number) => boolean, chevrons: (n: number) => boolean = () => false): string => {
+    let out = "";
+    for (let n = 1; n <= count; n++) {
+      out += `<a id="n${n}" href="#">${icons(n) ? `<span style="${BOX}"></span>` : ""}<span style="${TEXT}">Item</span>${chevrons(n) ? `<i style="${BOX}; border-top-width:2px"></i>` : ""}</a>`;
+    }
+    return `<nav>${out}</nav>`;
+  };
+
+  it("GRP-02 reports the one item without the icon nearly all its peers have", () => {
+    const found = scan(nav(8, (n) => n !== 5), "normal", ["GRP-02"]);
+    expect(found.keys).toEqual(["GRP-02 n5"]);
+    expect(finding(found, "GRP-02", "n5")).toMatchObject({ type: "Definite", severity: "Medium" });
+    expect(finding(found, "GRP-02", "n5").message).toBe("This item has no icon or marker; 7 of the 8 items in this group have one.");
+    expect(scan(nav(8, () => true), "normal", ["GRP-02"]).keys).toEqual([]);
+  });
+
+  it("GRP-02 lists a part that about half the items have for review, once", () => {
+    const found = scan(nav(8, () => true, (n) => n % 2 === 0), "normal", ["GRP-02"]);
+    expect(found.keys).toEqual(["GRP-02 n1"]);
+    expect(finding(found, "GRP-02", "n1")).toMatchObject({ type: "Review", severity: "Low", kind: "noMajority" });
+    // A part only one item in eight has is an extra of that item, not something the others lack.
+    expect(scan(nav(8, () => true, (n) => n === 3 || n === 4), "normal", ["GRP-02"]).keys).toEqual([]);
+  });
+
+  it("GRP-03 reports the divider that stops short of the edge its peer reaches", () => {
+    // Two cards, each with a main part and a list part divided from it by a line down its left side.
+    const card = (n: number, y: number, listHeight: number): string => `
+      <section data-box="0 ${y} 400 100" style="${BOX}">
+        <div data-box="1 ${y + 1} 150 98"><h3>58</h3></div>
+        <div id="list${n}" data-box="151 ${y + 1} 248 ${listHeight}" style="border-left-width:1px"><a href="#">Row</a></div>
+      </section>`;
+    const found = scan(`<main>${card(1, 0, 58)}${card(2, 120, 98)}</main>`, "normal", ["GRP-03"]);
+    expect(found.keys).toEqual(["GRP-03 list1"]);
+    expect(finding(found, "GRP-03", "list1")).toMatchObject({ kind: "pair", severity: "Low", actual: "40px from the bottom edge" });
+    expect(scan(`<main>${card(1, 0, 98)}${card(2, 120, 98)}</main>`, "normal", ["GRP-03"]).keys).toEqual([]);
+  });
+
+  /** Cards built alike; `style(n)` is added to the look of card n. */
+  const cards = (count: number, style: (n: number) => string): string => {
+    let out = "";
+    for (let n = 1; n <= count; n++) out += `<div id="c${n}" data-box="${n * 120} 0 100 80" style="${BOX}; ${style(n)}"><b>Title</b></div>`;
+    return `<main>${out}</main>`;
+  };
+  const RADIUS = "border-top-left-radius:8px; border-top-right-radius:8px; border-bottom-right-radius:8px; border-bottom-left-radius:8px";
+
+  it("BOX-01 reports a box with another corner radius", () => {
+    const found = scan(cards(6, (n) => (n === 4 ? "border-top-left-radius:2px" : RADIUS)), "normal", ["BOX-01"]);
+    expect(found.keys).toEqual(["BOX-01 c4"]);
+    expect(finding(found, "BOX-01", "c4")).toMatchObject({ type: "Definite", severity: "Low", expected: "8px" });
+    expect(scan(cards(6, () => RADIUS), "normal", ["BOX-01"]).keys).toEqual([]);
+  });
+
+  it("BOX-02 reports a box with a shadow where its peers have none, for review in a small group", () => {
+    const shadow = (n: number): string => (n === 2 ? "box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2)" : "");
+    const large = scan(cards(6, shadow), "normal", ["BOX-02"]);
+    expect(large.keys).toEqual(["BOX-02 c2"]);
+    expect(finding(large, "BOX-02", "c2").type).toBe("Definite");
+    // Three cards, one styled differently: it may be the featured one.
+    const small = scan(cards(3, shadow), "normal", ["BOX-02"]);
+    expect(small.keys).toEqual(["BOX-02 c2"]);
+    expect(finding(small, "BOX-02", "c2").type).toBe("Review");
+  });
+
+  it("BOX-03 lists a box with another background for review", () => {
+    const found = scan(cards(6, (n) => (n === 6 ? "background-color:rgb(255, 230, 230)" : "")), "normal", ["BOX-03"]);
+    expect(found.keys).toEqual(["BOX-03 c6"]);
+    expect(finding(found, "BOX-03", "c6")).toMatchObject({ type: "Review", actual: "rgb(255, 230, 230)" });
+    // A background that looks the same is the same.
+    expect(scan(cards(6, (n) => (n === 6 ? "background-color:rgb(251, 250, 250)" : "")), "normal", ["BOX-03"]).keys).toEqual([]);
+  });
+
+  it("every rule of the catalogue has a check", () => {
+    expect(RULES.every((r) => r.implemented)).toBe(true);
+    expect(RULES).toHaveLength(22);
   });
 });

@@ -187,7 +187,7 @@ export function runLayoutRules(ctx: RuleContext): void {
   // ---------------------------------------------------------------------------
 
   const gapRules = (): void => {
-    if (!ctx.runs("LAY-03")) return;
+    if (!ctx.runs("LAY-03") && !ctx.runs("LAY-10")) return;
     const tolerance = ctx.tolerance("LAY-03");
     // "Row gap and column gap very different": 2 times under the normal preset.
     const lopsided = 1 + ctx.factor;
@@ -195,7 +195,9 @@ export function runLayoutRules(ctx: RuleContext): void {
     const report = (container: number, group: number, actual: string, message: string, values: number[], kind: "outlier" | "pair" | "noMajority" = "noMajority"): void => {
       const counts = new Map<string, number>();
       for (const v of values) counts.set(px(v), (counts.get(px(v)) ?? 0) + 1);
-      ctx.report({ ruleId: "LAY-03", element: container, group, kind, severity: "Medium", property: "gap between items", expected: null, actual, values: Array.from(counts, ([value, count]) => ({ value, count })), message });
+      // The spacing of a toolbar or button group is the business of LAY-10.
+      const ruleId = group >= 0 && groups[group].controls && ctx.runs("LAY-10") ? "LAY-10" : "LAY-03";
+      ctx.report({ ruleId, element: container, group, kind, severity: "Medium", property: "gap between items", expected: null, actual, values: Array.from(counts, ([value, count]) => ({ value, count })), message });
     };
 
     for (const g of ctx.order) {
@@ -423,6 +425,8 @@ export function runLayoutRules(ctx: RuleContext): void {
       if (container.layout.direction === "row" && members.every((m) => sameRow(elements[m], first))) {
         if (align.includes("baseline")) continue;
         if (align === "center") {
+          // Items centred on a line are checked by LAY-07.
+          if (ctx.runs("LAY-07")) continue;
           property = "vertical centre";
           value = (el) => el.box.y + el.box.height / 2;
         } else if (align === "flex-end" || align === "end") {

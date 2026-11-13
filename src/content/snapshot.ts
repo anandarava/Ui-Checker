@@ -59,6 +59,8 @@ export interface StyleSnapshot {
   backgroundImage: string;
   overflowX: string;
   overflowY: string;
+  /** "ltr" or "rtl". */
+  direction: string;
 }
 
 export type LayoutDirection = "row" | "column";
@@ -68,6 +70,8 @@ export interface LayoutSnapshot {
   position: string;
   /** Main direction of the element's own flex or grid layout; null for other displays. */
   direction: LayoutDirection | null;
+  /** How the element lines up its flex or grid items across the main direction ("normal", "center", "flex-start"...). */
+  alignItems: string;
   /** Display of the DOM parent, e.g. "flex", "grid", "block". Empty for the scan root. */
   parentDisplay: string;
   parentDirection: LayoutDirection | null;
@@ -216,6 +220,7 @@ function readStyle(style: CSSStyleDeclaration, width: number): StyleSnapshot {
     backgroundImage: style.backgroundImage || "none",
     overflowX: style.overflowX || "visible",
     overflowY: style.overflowY || "visible",
+    direction: style.direction || "ltr",
   };
 }
 
@@ -391,6 +396,7 @@ export function takeSnapshot(root: Element, view: Window = window): PageSnapshot
           display: style.display,
           position: style.position || "static",
           direction: here.direction,
+          alignItems: style.alignItems || "normal",
           parentDisplay: parent.display,
           parentDirection: parent.direction,
         },

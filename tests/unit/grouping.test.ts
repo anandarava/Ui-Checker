@@ -212,9 +212,12 @@ describe("cousin and role groups", () => {
       </div>`);
     expect(find(found, "who", "f1", "f2")?.kind).toBe("sibling");
     expect(find(found, "l1", "l2")).toBeDefined();
-    expect(find(found, "v1", "v2")).toBeDefined();
+    // Its wrapper is not matched with anything, but its text joins the texts it looks like.
     expect(found.ids.flat()).not.toContain("who-text");
-    expect(found.ids.flat()).not.toContain("who-name");
+    expect(find(found, "who-name", "v1", "v2")?.kind).toBe("role");
+    // The row group knows which members are built alike.
+    const row = find(found, "who", "f1", "f2")!;
+    expect(row.core.map((m) => found.snapshot.nodes[m].id)).toEqual(["f1", "f2"]);
   });
 });
 

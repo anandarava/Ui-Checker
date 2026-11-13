@@ -1,5 +1,5 @@
 /** Version of the scan engine, written into every result so saved scans can be told apart. */
-export const ENGINE_VERSION = "0.3.0";
+export const ENGINE_VERSION = "0.4.0";
 
 /** Marker the content script sets on `window` once loaded, so it is injected only once per frame. */
 export const LOADED_FLAG = "__uiConsistencyCheckerLoaded";

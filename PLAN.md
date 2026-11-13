@@ -220,6 +220,32 @@ These cover the original problem statement: uneven padding, misaligned layout, a
 
 TYP-01, TYP-02, TYP-03, TYP-05, LAY-01, LAY-02, LAY-03, LAY-04, LAY-05, LAY-06.
 
+**Status: done.** The ten rules are in `src/content/rules/` and are marked `implemented` in the catalogue; the other rules are still reported as "not built".
+
+- **Seeded defects:** every defect of these ten rules is reported on all six defect fixtures, by the right rule and on the element the fixture names (`tests/e2e/rules.spec.ts`). Nothing is reported outside the seeded defects.
+- **Clean fixtures:** zero findings on all six, under the strict, normal and relaxed presets.
+- **Card grids:** the plain, utility-class and hashed-class versions give identical findings.
+- **Speed:** the rules take under 20 ms on the fixtures and at most 127 ms on the real-site list; a 5,200-element page is a check under 1 s.
+- **Real-site list:** 42 findings over the 20 pages (13 of them for review), at most 13 on one page, five pages with none. They have been read and the clear noise removed (below), but **not yet judged one by one against the "at least 70% accepted" target**: that needs a person looking at each page. `node scripts/dump-findings.mjs --sites scripts/real-sites.txt` prints them.
+- **TYP-01** has no seeded defect in any fixture; it is covered by a unit test only.
+
+How the rules work, where the plan left it open:
+
+- **LAY-01 / LAY-02** measure the gap from each edge of a drawn container to its content, but only on sides where the content sits against the padding (a centred child or a stretched card leaves free space, not padding). The margin of the first or last child is taken off. LAY-02 is relative like every other rule: it reports a container that is lopsided **while its peers are even**. One-sided padding on its own is normal (the clean fixtures have many cases), so a lone container is not judged. Tables and table cells are left out.
+- **LAY-03** reports on the container: unequal gaps between neighbouring peers, a grid whose row and column gaps differ by more than 2 times, the same group spaced differently in two containers, and two neighbouring gaps in a row that are nearly but not equal (an item meant to sit in the middle). A gap more than twice the usual one is a separator, not a mistake. Stacked blocks of text are not compared: their spacing follows their margins.
+- **LAY-04** has two parts. Peers in one row (or one column) must start on the same line, read from the container's `align-items`. And a **near miss**: an element whose edge is 2–8 px away from an edge that two or more nearby elements share, and that shares its own edge with nothing. Offsets of 8 px or more are treated as deliberate (an indent, another row).
+- **LAY-05** compares boxes without children (avatars, icons, images, fields) and only when nearly all members share the size; a size that just follows the text is ignored.
+- **LAY-06** reports a block that starts further in than the content edge of its own section, when the blocks of these sections normally start at that edge.
+- **Needs review instead of a defect:** a member that differs from its peers in colour only (colour often carries a meaning: a status, the current item), and a member that differs in several typographic ways at once (more likely another kind of element).
+- **Pair findings** sit on the second element in document order and name both values, since there is no telling which one is wrong.
+
+Changes outside the rules:
+
+- **Grouping:** the texts of a member built differently now join the texts they look like (the name in "My Details" joins the two values), so defect A7 is found. A word or link inside a sentence no longer joins a group as the odd one out.
+- **Table fixture:** the header search box ended 5 px short of the content below it in both variants. The near-miss check reported it correctly, so the fixture was fixed (`padding-right: 15px`).
+
+Noise removed after the first run on the real-site list (220 findings then): gaps between links inside sentences, row and column gaps of items that touch, vertical gaps between text blocks, indented sub-items reported as misaligned, table cells of differently sized tables compared with each other, and the cells of a column reported as a different size.
+
 ### Phase 3B: second wave
 
 TYP-04, TYP-06, LAY-07 to LAY-10, GRP-01 to GRP-03, BOX-01 to BOX-03.

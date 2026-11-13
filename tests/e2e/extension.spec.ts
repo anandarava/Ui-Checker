@@ -157,7 +157,7 @@ test.describe("extension", () => {
         expect(result.elementsScanned).toBeGreaterThan(10);
         expect(result.rules.map((r) => r.id)).toEqual(catalogue.rules.map((r) => r.id));
 
-        // Phase 0: no rule is built, so the scan must not claim anything passed or failed.
+        // A rule without a check must not claim anything passed or failed.
         const built = new Set(catalogue.rules.filter((r) => r.implemented).map((r) => r.id));
         for (const rule of result.rules) {
           if (!built.has(rule.id)) expect(rule.outcome, rule.id).toBe("notImplemented");
@@ -205,7 +205,9 @@ test.describe("extension", () => {
     await expect(results).toBeVisible();
     await expect(results).toContainText(url);
     await expect(results).toContainText("Elements measured");
-    await expect(results).toContainText("No checks are built yet");
+    // The seeded defects of the page are listed.
+    await expect(results).toContainText("LAY-06 · Content inset differs between sections");
+    await expect(results).not.toContainText("No checks are built yet");
     await expect(panel.getByRole("button", { name: "Rescan page" })).toBeVisible();
 
     // Reset returns to the landing view.

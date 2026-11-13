@@ -5,8 +5,8 @@
  *   2. grouping   (Phase 2)  find peer groups
  *   3. rules      (Phase 3)  compare the members of each group
  *
- * Built so far: the snapshot and the peer groups. Every rule is still reported
- * as "notImplemented". The result has the final shape, so the UI, the
+ * Built so far: the snapshot, the peer groups and the core rules (Phase 3A).
+ * A rule whose check does not exist yet is reported as "notImplemented". The result has the final shape, so the UI, the
  * reports and the tests can be built against it.
  *
  * Nothing in here may depend on a particular application: no selectors, class
@@ -14,12 +14,13 @@
  */
 import { ENGINE_VERSION } from "@shared/constants";
 import { RULES } from "@shared/rules";
-import type { ElementRef, PeerGroup, RuleResult, ScanOptions, ScanResult } from "@shared/types";
+import type { ElementRef, Finding, PeerGroup, RuleResult, ScanOptions, ScanResult } from "@shared/types";
 import { outerHtmlSnippet, uniqueSelector } from "./dom-utils";
-import { textSnippet } from "./fingerprint";
+import { fingerprint, textSnippet } from "./fingerprint";
 import { findPeerGroups, type RawGroup } from "./grouping";
 import type { OverlayGroup } from "./overlay/overlay-root";
 import { waitUntilReady, type ReadyReport } from "./ready";
+import { runRules, type RuleRun } from "./rules";
 import { takeSnapshot, type PageSnapshot } from "./snapshot";
 
 export type ProgressFn = (percent: number, stage: string) => void;
@@ -40,14 +41,26 @@ export function resolveScope(options: ScanOptions, doc: Document = document): El
   return found;
 }
 
-function ruleResults(options: ScanOptions): RuleResult[] {
-  const off = new Set(options.disabledRules ?? []);
-  const wanted = options.rules.length > 0 ? new Set(options.rules) : null;
+/** True when the user wants the rule: enabled, not switched off and (when rules are named) asked for. */
+function selected(ruleId: string, enabled: boolean, options: ScanOptions): boolean {
+  const off = options.disabledRules ?? [];
+  return enabled && !off.includes(ruleId) && (options.rules.length === 0 || options.rules.includes(ruleId));
+}
+
+/** The rules this scan runs: wanted by the user and built. */
+function rulesToRun(options: ScanOptions): string[] {
+  return RULES.filter((rule) => rule.implemented && selected(rule.id, rule.enabled, options)).map((rule) => rule.id);
+}
+
+function ruleResults(options: ScanOptions, run: RuleRun): RuleResult[] {
+  const failed = new Set(run.findings.filter((f) => f.type === "Definite").map((f) => f.ruleId));
   return RULES.map((rule) => {
-    const selected = rule.enabled && !off.has(rule.id) && (!wanted || wanted.has(rule.id));
-    if (!selected) return { id: rule.id, outcome: "disabled", groupsChecked: 0 };
+    if (!selected(rule.id, rule.enabled, options)) return { id: rule.id, outcome: "disabled", groupsChecked: 0 };
+    // Honest results: a rule without a check never counts as passed.
     if (!rule.implemented) return { id: rule.id, outcome: "notImplemented", groupsChecked: 0 };
-    return { id: rule.id, outcome: "notApplicable", groupsChecked: 0 };
+    const groupsChecked = run.checked.get(rule.id) ?? 0;
+    if (failed.has(rule.id)) return { id: rule.id, outcome: "failed", groupsChecked };
+    return { id: rule.id, outcome: groupsChecked > 0 ? "passed" : "notApplicable", groupsChecked };
   });
 }
 
@@ -73,10 +86,10 @@ export function forgetGroups(): void {
   lastGroups = [];
 }
 
-/** Turns the groups of snapshot indexes into what the UI and the reports read. */
-function describeGroups(raw: RawGroup[], snapshot: PageSnapshot): PeerGroup[] {
+/** Describes snapshot elements for the UI and the reports; each element is described once. */
+function describer(snapshot: PageSnapshot): (i: number) => ElementRef {
   const refs = new Map<number, ElementRef>();
-  const refOf = (i: number): ElementRef => {
+  return (i: number): ElementRef => {
     let ref = refs.get(i);
     if (!ref) {
       const node = snapshot.nodes[i];
@@ -88,7 +101,12 @@ function describeGroups(raw: RawGroup[], snapshot: PageSnapshot): PeerGroup[] {
     }
     return ref;
   };
-  const idOf = (index: number): string => `g${index + 1}`;
+}
+
+const idOf = (index: number): string => `g${index + 1}`;
+
+/** Turns the groups of snapshot indexes into what the UI and the reports read. */
+function describeGroups(raw: RawGroup[], snapshot: PageSnapshot, refOf: (i: number) => ElementRef): PeerGroup[] {
   lastGroups = raw.map((g, index) => ({ id: idOf(index), badge: `G${index + 1}`, nodes: g.members.map((m) => snapshot.nodes[m]) }));
   return raw.map((g, index) => {
     const group: PeerGroup = {
@@ -99,6 +117,34 @@ function describeGroups(raw: RawGroup[], snapshot: PageSnapshot): PeerGroup[] {
     };
     if (g.parent >= 0) group.parentGroupId = idOf(g.parent);
     return group;
+  });
+}
+
+/** Turns the rule findings into what the UI and the reports read. */
+function describeFindings(run: RuleRun, refOf: (i: number) => ElementRef): Finding[] {
+  const used = new Map<string, number>();
+  return run.findings.map((f) => {
+    const element = refOf(f.element);
+    // Stable across scans of the same page: rule, element and what was compared.
+    const print = fingerprint(f.ruleId, element.selector, `${f.property}|${element.text}`);
+    const n = (used.get(print) ?? 0) + 1;
+    used.set(print, n);
+    return {
+      id: n === 1 ? print : `${print}-${n}`,
+      fingerprint: print,
+      ruleId: f.ruleId,
+      severity: f.severity,
+      type: f.type,
+      status: "new",
+      kind: f.kind,
+      groupId: f.group >= 0 ? idOf(f.group) : "",
+      element,
+      property: f.property,
+      expected: f.expected,
+      actual: f.actual,
+      values: f.values,
+      message: f.message,
+    };
   });
 }
 
@@ -118,11 +164,17 @@ export async function runScan(options: ScanOptions, onProgress: ProgressFn = () 
 
   onProgress(60, "Finding elements that should match");
   const groupingStarted = performance.now();
-  const groups = describeGroups(findPeerGroups(snapshot.elements, { minGroupSize: options.minGroupSize }), snapshot);
+  const rawGroups = findPeerGroups(snapshot.elements, { minGroupSize: options.minGroupSize });
   const groupingMs = Math.round(performance.now() - groupingStarted);
 
   onProgress(85, "Comparing");
-  // Phase 3: consistency rules.
+  const rulesStarted = performance.now();
+  const run = runRules(snapshot.elements, rawGroups, options, rulesToRun(options));
+  const rulesMs = Math.round(performance.now() - rulesStarted);
+
+  const refOf = describer(snapshot);
+  const groups = describeGroups(rawGroups, snapshot, refOf);
+  const findings = describeFindings(run, refOf);
 
   onProgress(100, "Done");
   return {
@@ -134,11 +186,11 @@ export async function runScan(options: ScanOptions, onProgress: ProgressFn = () 
     engineVersion: ENGINE_VERSION,
     options,
     viewport: { width: window.innerWidth, height: window.innerHeight, devicePixelRatio: window.devicePixelRatio },
-    timings: { waitMs: ready.waitedMs, snapshotMs: Math.round(snapshot.durationMs), groupingMs },
+    timings: { waitMs: ready.waitedMs, snapshotMs: Math.round(snapshot.durationMs), groupingMs, rulesMs },
     elementsScanned: snapshot.elements.length,
     groups,
-    findings: [],
-    rules: ruleResults(options),
+    findings,
+    rules: ruleResults(options, run),
     notScanned: snapshot.notScanned,
     warnings: readyWarnings(ready),
   };

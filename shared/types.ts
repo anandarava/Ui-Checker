@@ -108,6 +108,7 @@ export interface Finding {
   type: FindingType;
   status: FindingStatus;
   kind: FindingKind;
+  /** The peer group that was compared; empty for a check that is not about one group. */
   groupId: string;
   element: ElementRef;
   /** What was compared, e.g. "font-size", "left inset". */
@@ -150,8 +151,8 @@ export interface ScanResult {
   /** ISO timestamp. */
   scannedAt: string;
   durationMs: number;
-  /** Parts of `durationMs`: waiting for the page to be ready, reading it, and finding the peer groups. */
-  timings: { waitMs: number; snapshotMs: number; groupingMs: number };
+  /** Parts of `durationMs`: waiting for the page to be ready, reading it, finding the peer groups and running the rules. */
+  timings: { waitMs: number; snapshotMs: number; groupingMs: number; rulesMs: number };
   engineVersion: string;
   options: ScanOptions;
   viewport: { width: number; height: number; devicePixelRatio: number };

@@ -20,7 +20,10 @@
  * Nothing in here may depend on a particular application.
  */
 import type { PeerGroupKind } from "@shared/types";
+import { alphaOf, createFacts } from "./facts";
 import type { ElementSnapshot } from "./snapshot";
+
+export { alphaOf } from "./facts";
 
 export interface RawGroup {
   kind: PeerGroupKind;
@@ -29,6 +32,12 @@ export interface RawGroup {
   /** Index of the group this one was derived from, or -1. */
   parent: number;
   label: string;
+  /**
+   * The members that have the same structure (all of them in most groups). A
+   * member outside the core is a peer of the others but is built differently,
+   * so its inner spacing is not compared with theirs.
+   */
+  core: number[];
   /**
    * A member without a state attribute that looks like the active one: the only
    * member of a group of links or buttons that differs in several style
@@ -52,18 +61,12 @@ const SHAPE_DEPTH = 3;
 const LEAF_CORE = 3;
 
 const HEADINGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6"]);
-const CONTROL_TAGS = new Set(["button", "input", "select", "textarea"]);
-const CONTROL_ROLES = new Set(["button", "tab", "switch", "checkbox", "radio", "combobox", "textbox", "searchbox", "slider", "spinbutton"]);
 const CONTROL_GROUP_ROLES = new Set(["group", "radiogroup", "tablist", "toolbar"]);
-const INTERACTIVE_TAGS = new Set(["a", "button", "summary"]);
-const INTERACTIVE_ROLES = new Set(["button", "link", "tab", "menuitem", "menuitemcheckbox", "menuitemradio", "option", "treeitem"]);
-/** Generic elements a link can stand in for (a link where its peers have plain text). */
 /** Parts inside a table: grouped as rows and columns, never as boxes of a level. The table itself can be one. */
 const TABLE_PARTS = new Set(["thead", "tbody", "tfoot", "tr", "td", "th", "caption"]);
 const TABLE_ROLES = new Set(["row", "cell", "gridcell", "columnheader", "rowheader", "rowgroup"]);
+/** Generic elements a link can stand in for (a link where its peers have plain text). */
 const TEXT_CARRIERS = new Set(["span", "div", "p", "b", "strong", "em", "i", "small", "label"]);
-
-type Kind = "text" | "box" | "group";
 
 /** Number of entries in an element's look: font size, weight, colour, background, border, radius, shadow. */
 const VISUAL_FIELDS = 7;
@@ -88,17 +91,6 @@ export interface PeerSet {
   parts: number[][];
 }
 
-/** Alpha of a computed colour; 1 when the format is not rgb()/rgba(). */
-export function alphaOf(color: string): number {
-  if (color === "transparent" || color === "") return 0;
-  const m = /^rgba?\(([^)]+)\)$/.exec(color);
-  if (!m) return 1;
-  const parts = m[1].split(/[\s,/]+/).filter(Boolean);
-  if (parts.length < 4) return 1;
-  const a = parts[3].endsWith("%") ? Number.parseFloat(parts[3]) / 100 : Number.parseFloat(parts[3]);
-  return Number.isFinite(a) ? a : 1;
-}
-
 export function findPeerGroups(elements: ElementSnapshot[], options: GroupingOptions = {}): RawGroup[] {
   const minSize = Math.max(2, options.minGroupSize ?? 2);
   const groups: RawGroup[] = [];
@@ -109,17 +101,9 @@ export function findPeerGroups(elements: ElementSnapshot[], options: GroupingOpt
 
   // ---- Per-element facts, computed on demand ----
 
-  const isRow = (i: number): boolean => elements[i].tag === "tr" || elements[i].role === "row";
-
-  const isCell = (i: number): boolean => elements[i].tag === "td" || elements[i].tag === "th" || elements[i].role === "cell" || elements[i].role === "gridcell";
+  const { kindOf, isRow, isCell, hasBox, inState, isControl, isInteractive } = createFacts(elements);
 
   const isTablePart = (i: number): boolean => TABLE_PARTS.has(elements[i].tag) || (elements[i].role !== null && TABLE_ROLES.has(elements[i].role!));
-
-  const kindOf = (i: number): Kind => {
-    const el = elements[i];
-    if (el.children.length > 0) return "group";
-    return el.text ? "text" : "box";
-  };
 
   const typeOf = (i: number): string => {
     const el = elements[i];
@@ -217,56 +201,6 @@ export function findPeerGroups(elements: ElementSnapshot[], options: GroupingOpt
       if (!best || entry.n > best.n) best = entry;
     }
     return best ? best.v : [];
-  };
-
-  /** The background actually seen behind an element: its own, or the nearest painted ancestor's. */
-  const backdrops = new Map<number, string>();
-  const backdropOf = (i: number): string => {
-    if (i < 0) return "rgb(255, 255, 255)";
-    let bg = backdrops.get(i);
-    if (bg === undefined) {
-      const own = elements[i].style.backgroundColor;
-      bg = alphaOf(own) > 0 ? own : backdropOf(elements[i].parent);
-      backdrops.set(i, bg);
-    }
-    return bg;
-  };
-
-  /** True when the element is drawn as a box of its own: a background that stands out, a border or a shadow. */
-  const hasBox = (i: number): boolean => {
-    const s = elements[i].style;
-    const b = s.borderWidth;
-    if (b.top + b.right + b.bottom + b.left > 0) return true;
-    if (s.boxShadow !== "none") return true;
-    return alphaOf(s.backgroundColor) > 0 && s.backgroundColor !== backdropOf(elements[i].parent);
-  };
-
-  /**
-   * True when the element, or an element it sits in, is in a state that
-   * changes its look on purpose (so also the icon of the current navigation
-   * item). "expanded" alone does not restyle what is inside.
-   */
-  const restyled = new Map<number, boolean>();
-  /** True when the element's state also restyles what is inside it. */
-  const restyles = (i: number): boolean => {
-    if (i < 0) return false;
-    let value = restyled.get(i);
-    if (value === undefined) {
-      value = elements[i].state.some((s) => s !== "expanded") || restyles(elements[i].parent);
-      restyled.set(i, value);
-    }
-    return value;
-  };
-  const inState = (i: number): boolean => elements[i].state.length > 0 || restyles(elements[i].parent);
-
-  const isInteractive = (i: number): boolean => {
-    const el = elements[i];
-    return INTERACTIVE_TAGS.has(el.tag) || CONTROL_TAGS.has(el.tag) || (el.role !== null && (INTERACTIVE_ROLES.has(el.role) || CONTROL_ROLES.has(el.role)));
-  };
-
-  const isControl = (i: number): boolean => {
-    const el = elements[i];
-    return CONTROL_TAGS.has(el.tag) || (el.role !== null && CONTROL_ROLES.has(el.role));
   };
 
   const containsControl = (i: number, depth = 3): boolean =>
@@ -372,6 +306,8 @@ export function findPeerGroups(elements: ElementSnapshot[], options: GroupingOpt
     const taken = new Set<Cluster>();
     for (const single of singles) {
       const s = single.members[0];
+      // A word or link inside a sentence is styled on purpose (emphasis, a link to a missing page): it joins nothing.
+      if (elements[s].parent >= 0 && elements[elements[s].parent].text !== "") continue;
       let best: Cluster | null = null;
       let bestDiff = Infinity;
       for (const core of cores) {
@@ -474,13 +410,13 @@ export function findPeerGroups(elements: ElementSnapshot[], options: GroupingOpt
   };
 
   /** Adds a group; returns its index, or the index of the group with the same members. */
-  const emit = (kind: PeerGroupKind, list: number[], parent: number, label: string): number => {
+  const emit = (kind: PeerGroupKind, list: number[], parent: number, label: string, core?: number[]): number => {
     const members = Array.from(new Set(list)).sort((a, b) => a - b);
     const key = members.join(",");
     const existing = seen.get(key);
     if (existing !== undefined) return existing;
     const index = groups.length;
-    groups.push({ kind, members, parent, label, guessedActive: guessActive(members) });
+    groups.push({ kind, members, parent, label, core: core ? core.slice().sort((a, b) => a - b) : members, guessedActive: guessActive(members) });
     seen.set(key, index);
     for (const m of members) {
       const of = memberOf.get(m);
@@ -582,9 +518,16 @@ export function findPeerGroups(elements: ElementSnapshot[], options: GroupingOpt
   const done = new Set<string>();
 
   /** Reports the sets of peers among `kids`; returns the elements that ended up in one. */
-  const split = (kids: number[], parent: number, describe?: (set: PeerSet, kind: PeerGroupKind) => string | undefined): Set<number> => {
+  const split = (
+    kids: number[],
+    parent: number,
+    describe?: (set: PeerSet, kind: PeerGroupKind) => string | undefined,
+    extend?: (sets: PeerSet[]) => void,
+  ): Set<number> => {
     const grouped = new Set<number>();
-    for (const set of cluster(kids)) {
+    const sets = cluster(kids);
+    extend?.(sets);
+    for (const set of sets) {
       // A set matched on similarity only adds nothing inside a level group, which
       // already says these boxes are peers, and says it for more of them.
       if (set.parts.length > 1 && inLevelRun(set.members)) continue;
@@ -596,6 +539,48 @@ export function findPeerGroups(elements: ElementSnapshot[], options: GroupingOpt
     return grouped;
   };
 
+  /** Plain text elements inside an element (no box of their own), a few levels deep. */
+  const plainTexts = (i: number, depth = 3): number[] => {
+    const out: number[] = [];
+    for (const c of elements[i].children) {
+      if (kindOf(c) === "text" && !hasBox(c)) out.push(c);
+      else if (depth > 1) out.push(...plainTexts(c, depth - 1));
+    }
+    return out;
+  };
+
+  /**
+   * A member built differently from its peers still shows the same kinds of
+   * text (a label, a value). Each of its plain texts joins the set of texts it
+   * looks like: the same look first, then at most one difference, which is the
+   * difference the rules must report. One text per set and member.
+   */
+  const adoptTexts = (odd: number[], sets: PeerSet[]): void => {
+    const textSets = sets.filter((s) => s.parts.length === 1 && s.members.every((m) => kindOf(m) === "text" && !hasBox(m) && !inState(m)));
+    if (textSets.length === 0) return;
+    for (const member of odd) {
+      const pairs: Array<{ text: number; set: PeerSet; diff: number }> = [];
+      for (const text of plainTexts(member)) {
+        if (inState(text)) continue;
+        for (const set of textSets) {
+          const diff = differences(visualOf(text), modalVisual(set.members));
+          if (diff <= 1) pairs.push({ text, set, diff });
+        }
+      }
+      pairs.sort((a, b) => a.diff - b.diff || a.text - b.text);
+      const usedTexts = new Set<number>();
+      const usedSets = new Set<PeerSet>();
+      for (const { text, set } of pairs) {
+        if (usedTexts.has(text) || usedSets.has(set)) continue;
+        usedTexts.add(text);
+        usedSets.add(set);
+        set.members.push(text);
+        set.members.sort((a, b) => a - b);
+        set.parts[0].push(text);
+      }
+    }
+  };
+
   /** `set.members` are peers: report them, then find the peers among their parts. */
   const peers = (set: PeerSet, kind: PeerGroupKind, parent: number, label?: string): void => {
     const { members } = set;
@@ -603,19 +588,17 @@ export function findPeerGroups(elements: ElementSnapshot[], options: GroupingOpt
     if (done.has(key)) return;
     done.add(key);
     const text = label ?? (kind === "cousin" ? `${members.length} ${thing(members)} in ${parentsOf(members)} lists` : `${members.length} ${thing(members)}${arrangement(members)}`);
-    const group = emit(kind, members, parent, text);
+    const largest = set.parts.reduce((a, b) => (b.length > a.length ? b : a), set.parts[0]);
+    const group = emit(kind, members, parent, text, largest.length >= 2 ? largest : members);
     const grouped = new Set<number>();
     // "9 links: the same part of 9 boxes", not the whole chain of where those boxes are.
     const short = text.split(":")[0];
 
     // Only members with the same structure have their parts matched with each other.
     // A member built differently is taken apart on its own, like any other element.
-    const alone: number[] = [];
-    for (const part of set.parts) {
-      if (part.length < 2) {
-        alone.push(...part);
-        continue;
-      }
+    const alone = set.parts.filter((p) => p.length < 2).flat();
+    const matched = set.parts.filter((p) => p.length >= 2);
+    for (const part of matched) {
       if (part.every((m) => elements[m].tag === "pre")) continue;
       if (part.every(isRow)) {
         // Rows of a table: cells are matched by position, so each column is one group.
@@ -626,7 +609,10 @@ export function findPeerGroups(elements: ElementSnapshot[], options: GroupingOpt
         }
       } else {
         const kids = part.flatMap((m) => elements[m].children);
-        for (const m of split(kids, group, (s, k) => (k === "role" ? `${s.members.length} ${thing(s.members)}: the same part of ${short}` : undefined))) grouped.add(m);
+        const describe = (s: PeerSet, k: PeerGroupKind): string | undefined => (k === "role" ? `${s.members.length} ${thing(s.members)}: the same part of ${short}` : undefined);
+        // The texts of a member built differently join the parts they look like, so they are compared too.
+        const extend = matched.length === 1 && alone.length > 0 ? (sets: PeerSet[]): void => adoptTexts(alone, sets) : undefined;
+        for (const m of split(kids, group, describe, extend)) grouped.add(m);
       }
     }
     for (const m of members) {

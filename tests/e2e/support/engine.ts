@@ -6,7 +6,9 @@ import type { Page } from "@playwright/test";
 import { build } from "esbuild";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import type { RuleDef, ScanOptions, TolerancePreset } from "@shared/types";
 import type { RawGroup } from "@src/content/grouping";
+import type { RawFinding, RuleRun } from "@src/content/rules";
 import type { ElementSnapshot, PageSnapshot } from "@src/content/snapshot";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -19,13 +21,19 @@ export type Snap = Omit<PageSnapshot, "nodes"> & {
 interface Engine {
   takeSnapshot(root: Element): PageSnapshot;
   findPeerGroups(elements: ElementSnapshot[]): RawGroup[];
+  runRules(elements: ElementSnapshot[], groups: RawGroup[], options: ScanOptions, ruleIds: string[]): RuleRun;
+  RULES: RuleDef[];
 }
 
 let bundle: Promise<string> | null = null;
 
 function engineScript(): Promise<string> {
   bundle ??= build({
-    stdin: { contents: `export * from "./snapshot"; export * from "./grouping";`, resolveDir: path.join(ROOT, "src/content"), loader: "ts" },
+    stdin: {
+      contents: `export * from "./snapshot"; export * from "./grouping"; export * from "./rules"; export { RULES } from "@shared/rules";`,
+      resolveDir: path.join(ROOT, "src/content"),
+      loader: "ts",
+    },
     bundle: true,
     format: "iife",
     globalName: "UICheckEngine",
@@ -84,4 +92,46 @@ export async function findGroups(page: Page, selectors: string[] = []): Promise<
     const names = snapshot.nodes.map((el) => `${el.localName}${el.className && typeof el.className === "string" ? "." + el.className.split(/\s+/).join(".") : ""}${snapshot.elements[indexOf.get(el)!].text ? ` "${snapshot.elements[indexOf.get(el)!].text.slice(0, 20)}"` : ""}`);
     return { groups, matches, names, durationMs };
   }, selectors);
+}
+
+export interface FoundFinding extends RawFinding {
+  /** data-fx names of the element the finding points at and of the elements it sits in, nearest first. */
+  within: string[];
+  /** Short description of the element, for failure messages. */
+  name: string;
+}
+
+export interface FoundFindings {
+  findings: FoundFinding[];
+  /** The seeded defects the page lists about itself. */
+  expected: Array<{ id: string; rule: string | null; target: string; review?: boolean; both?: boolean }>;
+  /** Rule id -> number of groups the rule looked at. */
+  checked: Record<string, number>;
+  durationMs: number;
+}
+
+/** Runs every built rule on the page. */
+export async function findFindings(page: Page, preset: TolerancePreset = "normal"): Promise<FoundFindings> {
+  await addEngine(page);
+  return page.evaluate((tolerancePreset) => {
+    const api = (window as unknown as { UICheckEngine: Engine }).UICheckEngine;
+    const snapshot = api.takeSnapshot(document.body);
+    const groups = api.findPeerGroups(snapshot.elements);
+    const started = performance.now();
+    const ruleIds = api.RULES.filter((r) => r.implemented && r.enabled).map((r) => r.id);
+    const run = api.runRules(snapshot.elements, groups, { scope: "page", tolerancePreset, rules: [] }, ruleIds);
+    const durationMs = performance.now() - started;
+    const findings = run.findings.map((f) => {
+      const el = snapshot.nodes[f.element];
+      const within: string[] = [];
+      for (let node: Element | null = el; node; node = node.parentElement) {
+        const fx = node.getAttribute("data-fx");
+        if (fx) within.push(fx);
+      }
+      const text = snapshot.elements[f.element].text;
+      return { ...f, within, name: `${el.localName}${typeof el.className === "string" && el.className ? "." + el.className.split(/\s+/).join(".") : ""}${text ? ` "${text.slice(0, 20)}"` : ""}` };
+    });
+    const expected = JSON.parse(document.getElementById("expected")?.textContent ?? "[]");
+    return { findings, expected, checked: Object.fromEntries(run.checked), durationMs };
+  }, preset);
 }

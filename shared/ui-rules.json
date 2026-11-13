@@ -10,7 +10,7 @@
       "fix": "Use the same font family as the peer elements.",
       "severity": "High",
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "TYP-02",
@@ -25,7 +25,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "TYP-03",
@@ -36,7 +36,7 @@
       "fix": "Use the same font weight as the peer elements.",
       "severity": "Medium",
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "TYP-04",
@@ -66,7 +66,7 @@
         "unit": "deltaE"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "TYP-06",
@@ -96,7 +96,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "LAY-02",
@@ -111,7 +111,7 @@
         "unit": "ratio"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "LAY-03",
@@ -126,7 +126,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "LAY-04",
@@ -141,7 +141,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "LAY-05",
@@ -156,7 +156,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "LAY-06",
@@ -171,7 +171,7 @@
         "unit": "px"
       },
       "enabled": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "LAY-07",

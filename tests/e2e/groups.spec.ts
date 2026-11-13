@@ -35,8 +35,9 @@ const DASHBOARD: Expected = {
   "G11 sidebar navigation items": ".nav-item",
   "event icons": ".event-item .ic",
   "event texts": ".event-item > :not(.ic)",
-  "field labels": ".field .muted",
-  "field values": ".field .value",
+  // The name box is built differently, but its texts join the labels and values they look like.
+  "field labels": ".details .muted",
+  "field values": ".field .value, .who-name",
 };
 
 const DASHBOARD_APART: Apart = [

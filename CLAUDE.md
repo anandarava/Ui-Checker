@@ -34,6 +34,7 @@ PLAN.md and the table in README.md when a phase is finished.
 - `npm run fixtures:build` rebuilds the fixture pages after editing `fixtures/src`
 - `node scripts/make-rules.mjs` rewrites the rule catalogue from its table
 - `node scripts/dump-groups.mjs <fixture or URL>` prints the peer groups of a page
+- `node scripts/dump-findings.mjs --all` prints the findings on every fixture (`--sites scripts/real-sites.txt` for the real-site list)
 
 ## Layout
 
@@ -41,6 +42,8 @@ PLAN.md and the table in README.md when a phase is finished.
 - `src/content/scanner.ts` the scan pipeline: snapshot, peer groups, rules
 - `src/content/snapshot.ts` the page snapshot; rules read it, never the live DOM
 - `src/content/grouping.ts` peer groups, from the snapshot only; never reads class names
+- `src/content/rules/` the consistency rules; they read the snapshot and the groups only
+- `src/content/facts.ts` what the grouping and the rules both need to know about an element
 - `src/content/overlay/` what the extension draws on the page
 - `src/background/` service worker and content-script injection
 - `src/sidepanel/`, `src/options/` React UI

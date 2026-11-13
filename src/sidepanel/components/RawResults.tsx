@@ -85,7 +85,7 @@ export function RawResults({ result }: { result: ScanResult }) {
           <Stat label="Needs review" value={review} />
         </dl>
         <p className="mt-2 text-xs text-slate-700">
-          Scanned in {result.durationMs} ms (page read in {result.timings.snapshotMs} ms, groups found in {result.timings.groupingMs} ms) · {result.viewport.width} × {result.viewport.height} px · tolerance: {result.options.tolerancePreset}
+          Scanned in {result.durationMs} ms (page read in {result.timings.snapshotMs} ms, groups found in {result.timings.groupingMs} ms, rules run in {result.timings.rulesMs} ms) · {result.viewport.width} × {result.viewport.height} px · tolerance: {result.options.tolerancePreset}
         </p>
         {built === 0 && (
           <p role="status" className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-slate-800">

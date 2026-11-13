@@ -16,18 +16,21 @@ extension, so testers who know one already know the other.
 
 ## Status
 
-**Phases 0 to 2 are done.** The scan measures every
-visible element of the page and finds the *peer groups*: the elements that
-should look the same. The side panel lists them and can outline them on the
-page. **No checks are built yet**: every rule is reported as "Not built yet"
-and a scan finds no issues. See [PLAN.md](PLAN.md) for the phases.
+**Phases 0 to 2 and Phase 3A are done.** The scan measures every visible
+element of the page, finds the *peer groups* (the elements that should look the
+same) and runs the **ten core rules** on them: font family, size, weight and
+colour, inner padding, gaps, edges, sizes and section insets. The side panel
+lists the findings and the groups, and can outline the groups on the page. The
+other rules are reported as "Not built yet". See [PLAN.md](PLAN.md) for the
+phases.
 
 | Phase | What | Status |
 |---|---|---|
 | 0 | Project, rule catalogue, fixtures, raw results view | Done |
 | 1 | Page snapshot engine | Done |
 | 2 | Peer grouping | Done |
-| 3 | Consistency rules (3A core, 3B second wave) | Next |
+| 3A | Consistency rules: the ten core rules | Done |
+| 3B | Consistency rules: second wave | Next |
 | 4 | Results UI and reports | |
 | 5 | Page-wide design-scale audit | |
 | 6 | Site scan, CI package, cross-page checks | |
@@ -61,6 +64,7 @@ npm run fixtures        # serves the fixtures at http://127.0.0.1:4174/
 | `npm run fixtures:build` | Rebuild the fixture pages from `fixtures/src` |
 | `npm run fixtures:check` | Fail when a fixture page is out of date |
 | `node scripts/make-rules.mjs` | Rewrite `shared/ui-rules.json` from the table in the script |
+| `node scripts/dump-findings.mjs <fixture or URL>` | Print the findings of the rules on a page. `--all` runs every fixture, `--sites scripts/real-sites.txt` the real-site test list, `--preset strict` another tolerance preset |
 | `node scripts/dump-groups.mjs <fixture or URL>` | Print the peer groups found on a page, for reviewing them by hand. `--sites scripts/real-sites.txt` runs the real-site test list, `--sample n` prints n groups per page, `--shots dir` saves screenshots with the groups drawn |
 
 ## Project layout
@@ -72,14 +76,16 @@ src/background/    Service worker: injects the content script, starts scans, kee
 src/content/       Runs in the page. scanner.ts is the scan pipeline
                    (snapshot -> peer groups -> rules); snapshot.ts measures the
                    page, ready.ts waits until it can be measured, grouping.ts
-                   finds the peer groups, overlay/ draws on the page.
+                   finds the peer groups, rules/ compares them, overlay/ draws
+                   on the page.
 src/sidepanel/     The side panel (React).
 src/options/       The options page: the rule list with on/off switches.
 fixtures/src/      Fixture templates. One template gives a "defects" and a "clean" page.
 fixtures/          Generated fixture pages. Do not edit by hand.
 tests/unit/        Vitest.
 tests/e2e/         Playwright, with the built extension loaded.
-scripts/           Fixture builder, fixture server, rule catalogue writer, group dump.
+scripts/           Fixture builder, fixture server, rule catalogue writer, group and
+                   findings dumps, the real-site test list.
 ```
 
 ## Fixtures

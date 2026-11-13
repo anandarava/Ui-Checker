@@ -22,7 +22,7 @@ const OPTIONS: ExportOption[] = [
   { id: "json", format: "json", label: "JSON", hint: "Raw results for tooling and CI", chip: "JSON" },
 ];
 
-interface ReportFile {
+export interface ReportFile {
   filename: string;
   mime: string;
   content: string;
@@ -32,7 +32,7 @@ interface ReportFile {
 }
 
 /** Saves the file from the panel: the report is built on this machine and goes nowhere else. */
-function download(file: ReportFile): void {
+export function download(file: ReportFile): void {
   const url = URL.createObjectURL(new Blob([file.content], { type: file.mime }));
   const link = document.createElement("a");
   link.href = url;
@@ -46,6 +46,7 @@ function download(file: ReportFile): void {
 export function ExportMenu() {
   const tabId = useStore((s) => s.tabId);
   const hasResult = useStore((s) => Boolean(s.result));
+  const saved = useStore((s) => s.viewingSaved);
   const showToast = useStore((s) => s.showToast);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -54,7 +55,10 @@ export function ExportMenu() {
     const { format } = option;
     setBusy(option.id);
     showToast({ kind: "info", message: option.screenshots ? "Capturing screenshots, then building the report… Keep this tab open." : `Building ${format.toUpperCase()} report…` });
-    const res = await sendToBackground<ReportFile>({ type: "EXPORT_REPORT", tabId, format, screenshots: option.screenshots });
+    // A saved scan is exported as it was saved: its page may be gone, so no screenshots are taken now.
+    const res = saved
+      ? await sendToBackground<ReportFile>({ type: "SAVED_SCAN_EXPORT", id: saved.id, format })
+      : await sendToBackground<ReportFile>({ type: "EXPORT_REPORT", tabId, format, screenshots: option.screenshots });
     setBusy(null);
     if (!res.ok || !res.data) {
       showToast({ kind: "error", message: `Export failed: ${res.error ?? "unknown error"}`, autoDismiss: false });

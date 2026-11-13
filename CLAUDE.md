@@ -33,6 +33,7 @@ PLAN.md and the table in README.md when a phase is finished.
 - `npm run test:e2e` runs the browser tests against `dist/`; build first
 - `npm run fixtures:build` rebuilds the fixture pages after editing `fixtures/src`
 - `node scripts/make-rules.mjs` rewrites the rule catalogue from its table
+- `npx playwright test -c ci/playwright.config.ts` runs the sample CI test (set `UICHECK_URL`; see `ci/README.md`)
 - `node scripts/dump-groups.mjs <fixture or URL>` prints the peer groups of a page
 - `node scripts/dump-findings.mjs --all` prints the findings on every fixture (`--sites scripts/real-sites.txt` for the real-site list, `--audit` adds the design scale, `--tokens <file>` checks it against a token file)
 
@@ -45,6 +46,10 @@ PLAN.md and the table in README.md when a phase is finished.
 - `src/content/rules/` the consistency rules; they read the snapshot and the groups only
 - `src/content/audit.ts` the design-scale audit (fonts, sizes, spacing, colours); its marks are observations, not findings
 - `shared/tokens.ts` reads a design-token file; tokens are kept in `chrome.storage.local`, not in the synced settings
+- `src/content/parts.ts` the parts a page shares with its site (title, header, navigation, footer, tab bars); `shared/cross-page.ts` compares them across the pages of a site scan
+- `shared/site-crawl.ts`, `src/background/site-scan.ts` the site scan, copied from the accessibility extension
+- `src/background/storage.ts` saved scans; `shared/compare.ts` new / fixed / unchanged between two scans
+- `ci/` the same scan for Playwright tests, with baselines; it bundles `src/content/scanner.ts`, so the scanner must not use `chrome.*`
 - `src/content/facts.ts` what the grouping and the rules both need to know about an element
 - `src/content/overlay/` what the extension draws on the page
 - `src/background/` service worker and content-script injection

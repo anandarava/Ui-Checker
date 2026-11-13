@@ -3,8 +3,9 @@
  * service worker, in unit tests and in CI. The side panel saves the file.
  */
 import type { ExportFormat, ScanResult } from "@shared/types";
-import { buildHtmlReport, type ReportMeta } from "./html-report";
-import { buildJsonReport } from "./json-report";
+import { crossPageFindings } from "@shared/cross-page";
+import { buildHtmlReport, buildSiteHtmlReport, type ReportMeta } from "./html-report";
+import { buildJsonReport, buildJsonReportDocument, toolInfo } from "./json-report";
 
 export interface ReportFile {
   filename: string;
@@ -43,4 +44,20 @@ export function buildReport(format: ExportFormat, result: ScanResult, meta: Repo
   const spec = FORMATS[format];
   if (!spec) throw new Error(`Unsupported export format: ${String(format)}`);
   return { filename: reportFilename(format, result), mime: spec.mime, content: spec.build(result, meta) };
+}
+
+/**
+ * One report for several scanned pages (a site scan, or saved scans ticked
+ * together): an overview, what differs across the pages, then each page.
+ * The pages are compared here, so the report always matches its pages.
+ */
+export function buildMultiPageReport(format: ExportFormat, results: ScanResult[], meta: ReportMeta = {}): ReportFile {
+  if (results.length === 0) throw new Error("No scanned pages to export.");
+  const crossPage = crossPageFindings(results);
+  const name = `${appName(results[0])}_UI_Consistency_Site_Report`;
+  if (format === "json") {
+    const document = { tool: toolInfo(), exportedAt: new Date().toISOString(), pageCount: results.length, crossPage, pages: results.map((r) => buildJsonReportDocument(r)) };
+    return { filename: `${name}.json`, mime: FORMATS.json.mime, content: JSON.stringify(document, null, 2) + "\n" };
+  }
+  return { filename: `${name}.html`, mime: FORMATS.html.mime, content: buildSiteHtmlReport(results, crossPage, meta) };
 }

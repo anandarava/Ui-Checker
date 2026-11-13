@@ -52,6 +52,8 @@ export function IssueDetail({ issueId, onBack }: { issueId: string; onBack(): vo
   const filters = useStore((s) => s.filters);
   const tab = useStore((s) => s.resultTab);
   const autoHighlight = useStore((s) => s.autoHighlight);
+  // A saved scan is read-only, and its page may no longer be the one in the tab.
+  const readOnly = useStore((s) => s.viewingSaved !== null);
   const setAutoHighlight = useStore((s) => s.setAutoHighlight);
   const selectIssue = useStore((s) => s.selectIssue);
   const setFilters = useStore((s) => s.setFilters);
@@ -80,7 +82,7 @@ export function IssueDetail({ issueId, onBack }: { issueId: string; onBack(): vo
 
   // Draw the element, its peers and the measurement on the page while the finding is open.
   useEffect(() => {
-    if (tabId === null || !issue || !autoHighlight) return;
+    if (tabId === null || !issue || !autoHighlight || readOnly) return;
     void locateIssue(tabId, issue, showPeers).then((res) => {
       if (!res.ok) showToast({ kind: "error", message: "The page has changed since the scan. Scan again to show the element." });
     });
@@ -89,7 +91,7 @@ export function IssueDetail({ issueId, onBack }: { issueId: string; onBack(): vo
     };
     // Re-run only for another finding or another choice, not for every result update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabId, issueId, autoHighlight, showPeers]);
+  }, [tabId, issueId, autoHighlight, showPeers, readOnly]);
 
   if (!result || !issue) {
     return (
@@ -245,7 +247,8 @@ export function IssueDetail({ issueId, onBack }: { issueId: string; onBack(): vo
         {form && <ReasonForm title={ACTION[form].title} description={ACTION[form].description} submitLabel={ACTION[form].submit} busy={busy} onSubmit={(reason) => void submit(form, reason)} onCancel={() => setForm(null)} />}
       </div>
 
-      <footer className="flex shrink-0 flex-wrap items-center gap-1.5 border-t border-slate-200 bg-white px-3 py-2">
+      {readOnly && <p className="shrink-0 border-t border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">This is a saved scan: it is read-only. Go back to the live results to act on an issue.</p>}
+      <footer className={`shrink-0 flex-wrap items-center gap-1.5 border-t border-slate-200 bg-white px-3 py-2 ${readOnly ? "hidden" : "flex"}`}>
         <Button variant="primary" size="sm" onClick={() => void viewElement()} disabled={tabId === null}>
           <EyeIcon /> View element
         </Button>

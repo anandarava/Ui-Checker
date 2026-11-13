@@ -74,6 +74,12 @@
     "both": true,
     "target": "nav-first",
     "note": "Chevron on seven of thirteen navigation items: the ones that open a sub-menu (intentional)"
+  },
+  {
+    "id": "D11",
+    "rule": "IMG-01",
+    "target": "brand-mark",
+    "note": "The mark next to the product name points at a file that does not exist"
   }
 ]</script>
 <style>
@@ -84,7 +90,8 @@
   .shell { display: flex; min-height: 100vh; }
 
   .sidebar { width: 330px; flex: none; background: #e3ece6; padding: 20px 0; }
-  .brand { padding: 0 90px 24px; font-size: 26px; font-weight: 700; color: #14532d; }
+  .brand { padding: 0 90px 24px; font-size: 26px; font-weight: 700; color: #14532d; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+  .brand-mark { flex: none; background: #14532d; border-radius: 4px; }
   .site { margin: 0 18px 36px; padding: 16px; background: #fff; text-align: center; font-weight: 600; font-size: 18px; }
   .switch { display: inline-flex; margin-top: 16px; border: 1px solid #e3e3e3; border-radius: 4px; overflow: hidden; }
   .switch-btn { width: 122px; height: 36px; border: 0; background: #fff; font: inherit; font-size: 14px; }
@@ -140,7 +147,7 @@
 <body>
 <div class="shell">
   <aside class="sidebar">
-    <div class="brand">Example</div>
+    <div class="brand"><img class="brand-mark" data-fx="brand-mark" alt="" width="20" height="20" src="missing-mark.png"><span>Example</span></div>
     <div class="site">
       Sample Automation Test Site
       <div class="switch" role="group" aria-label="View">

@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "PalTech UI Consistency Checker",
   "short_name": "PalTech UI Check",
-  "version": "0.5.0",
-  "version_name": "0.5.0-phase5",
+  "version": "0.6.0",
+  "version_name": "0.6.0-phase6",
   "description": "Scan pages for uneven padding, misaligned layout and mismatched fonts between elements that should look the same.",
   "minimum_chrome_version": "116",
   "action": {
@@ -19,7 +19,7 @@
   },
   "options_page": "src/options/index.html",
   "devtools_page": "src/devtools/index.html",
-  "permissions": ["activeTab", "scripting", "sidePanel", "storage"],
+  "permissions": ["activeTab", "scripting", "sidePanel", "storage", "unlimitedStorage"],
   "host_permissions": ["<all_urls>"],
   "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" }
 }

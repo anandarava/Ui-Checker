@@ -1,5 +1,5 @@
 /** Version of the scan engine, written into every result so saved scans can be told apart. */
-export const ENGINE_VERSION = "0.6.0";
+export const ENGINE_VERSION = "0.7.0";
 
 /** Marker the content script sets on `window` once loaded, so it is injected only once per frame. */
 export const LOADED_FLAG = "__uiConsistencyCheckerLoaded";
@@ -15,5 +15,12 @@ export const STORAGE_SETTINGS = "settings";
 export const STORAGE_RESULT_PREFIX = "result:";
 /** chrome.storage.local: the findings a tester ignored, baselined or marked intentional, per site. */
 export const STORAGE_STATUS_PREFIX = "status:";
+/** chrome.storage.local: saved scans. The index holds the metadata; each result has a key of its own. */
+export const STORAGE_SAVED_INDEX = "savedScans";
+export const STORAGE_SAVED_PREFIX = "savedScan:";
+/** Saved scans kept; the oldest beyond this are dropped. */
+export const SAVED_SCAN_LIMIT = 100;
+/** How long the page must be quiet before a change is reported to the panel. */
+export const SPA_DEBOUNCE_MS = 800;
 /** chrome.storage.local: the team's design tokens, imported on the options page (too large for the synced settings). */
 export const STORAGE_TOKENS = "designTokens";

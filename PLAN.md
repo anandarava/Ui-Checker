@@ -325,6 +325,7 @@ Noise removed after the first run on the real-site list: underlines under links 
 | TXT-02 | Shortened text cannot be read in full |
 | TXT-03 | Text shortened in different ways |
 | FMT-01 | Value format differs in one column or list field |
+| IMG-01 | Image does not load (added in Phase 6) |
 
 **Severity:** High = most members agree and one or two differ clearly (strong outlier). Medium = small differences or a near-even split. Low = the difference may be intentional.
 
@@ -357,7 +358,7 @@ Not done, or not checked:
 - The **"Spacing grid" overlay layer** is not built.
 - The **DevTools panel** is built but has no automated test (a test cannot open DevTools); it has not been opened by hand either.
 - The extension's **own UI has not been scanned with the accessibility extension**, as the Look-and-feel section asks.
-- **Saved scans, compare, site scan and the page-changed banner** are in the Look-and-feel table but belong to Phase 6 and are not built.
+- **Saved scans, compare, site scan and the page-changed banner** were built in Phase 6.
 - "A tester can understand every finding without opening DevTools" has not been tried with a tester.
 
 Build everything in **Look and feel** above, by copying the accessibility extension's side panel, overlay, options page and exporters.
@@ -455,6 +456,60 @@ Not done, or not checked:
 ## Phase 6: Scale, CI and the existing features
 
 **Size:** M
+
+**Status: done**, in three parts. Both "done when" conditions are met and tested: the sample Playwright test fails on the defects fixture and passes on the clean one, and a 20-page site scan finishes.
+
+### Part 1: Playwright CI package and the broken-image check
+
+- **CI package** (`ci/`): `ui-check.ts` bundles the extension's own `runScan` and runs it in a Playwright page, so a finding has the same rule, selector and fingerprint in CI and in the extension. `newIssues()` gives the definite findings that are not in the baseline (findings for review never fail a build). `loadBaseline()` reads the file `writeBaseline()` writes, the export of the options page, a JSON report or a list of fingerprints. `scanAtWidths()` scans at several viewport widths. `example.spec.ts` is a sample test driven by environment variables; see `ci/README.md`.
+- **IMG-01 "Image does not load"** (rule 28). It does the job of the old alignment checker's broken-image detector but shares no code with it: the old one loaded every image again with a 5-second limit, which is where its false positives came from. The new check reads the browser's own verdict (an image that finished loading with nothing to draw, or a background image the server answered with an error for). Nothing is loaded again and nothing is waited for, so an image that is still loading is never reported.
+
+### Part 2: Saved scans, compare, page-changed banner
+
+Copied from the accessibility extension (`SavedScans`, `SaveScanButton`, `CompareView`, `PageChangedBanner`, `RowMenu`, `ScoreRing`, `spa-observer.ts`, the saved-scan part of `storage.ts`).
+
+- **Saved scans:** save the result of a tab under a name, with or without screenshots; list, open read-only, rename, export, delete. Kept in this browser, at most 100. Several ticked scans export as one report.
+- **Compare** (`shared/compare.ts`): two saved scans, or one and the current scan, as new / fixed / unchanged by fingerprint, with the score and the counts side by side. It warns when the two scans are of different addresses or window widths.
+- **Page changed:** after a scan the content script watches the page; the panel offers a rescan when a single-page app goes to another route, a dialog opens or more than a fifth of the content changes. A rescan is offered, never started on its own.
+
+### Part 3: Site scan and cross-page consistency
+
+- **Site scan** (`shared/site-crawl.ts`, `src/background/site-scan.ts`, `SiteScan`), copied from the accessibility extension: find the pages of an application (sitemap, links, links a script-built page shows), let the tester tick them, then open each in a window of its own and scan it with the normal scan. Pause, resume, stop, rescan one page or all, add a page by hand. The run survives a closed panel.
+- **Screen width:** the pages are scanned at the width set in the form (default 1280). One width per run; scan again for another width.
+- **Cross-page consistency** (`src/content/parts.ts`, `shared/cross-page.ts`): every full-page scan now records the parts a page shares with the rest of its site: page title (`h1`), header, navigation, footer and tab bars, found from standard elements and roles. When a site scan ends the parts are matched across the pages and compared like the members of a peer group: the value most pages have is expected, and the pages that differ are reported.
+
+  | Part | Compared |
+  |---|---|
+  | Page title | Left edge, vertical position, font size, weight and family; colour for review |
+  | Header, footer | Height, background |
+  | Navigation | Left and top edge, width, background, font; for each item, whether it shows a label and whether it shows an icon; number of items for review |
+  | Tab bar | Height, font |
+  | Any part | Missing on a few pages while three quarters or more have it: for review |
+
+- **Site report:** one HTML or JSON file with an overview of the pages, what differs across them, and every page with its issues.
+
+Checked:
+
+- **Sample CI test** (`tests/e2e/ci.spec.ts` runs it the way a pipeline would): passes on the clean dashboard, fails on the defects dashboard with the issues listed, passes on the defects dashboard once its issues are written to the baseline, and reports only a newly added defect on a baselined page.
+- **20-page site scan** (a made-up application of twenty pages served by the test): all twenty pages found and scanned in about 1.8 minutes. The three pages seeded with a difference in a shared part are reported and no other: the page title 6 px further right, the page title in 32 px instead of 28 px, a navigation item without its label. The one page with an inconsistency of its own is the only page with an issue.
+- **Screen width:** a site scan asked for 768 px gives results measured at 768 px.
+- **Saved scans and compare:** save, compare with the page after fixing a defect (the fixed issue is listed as fixed, nothing as new), open read-only, export, rename, delete.
+- **Page changed:** the banner appears on a new route and on a dialog, and not while the extension draws on the page.
+- **IMG-01:** found on the compliance defect fixture (new defect D11); no finding on the 20 pages of the real-site list.
+- **Tests:** 189 unit tests and 88 browser tests pass. The saved scans, the comparison, the site scan and the site report were also looked at as screenshots.
+
+Not done, or not checked:
+
+- **Several widths in one site scan** are not built: a run has one width. The CI package scans several widths in one call.
+- **A width of 375 px in the extension has not been tried in a visible browser.** The scan window is an ordinary browser window, and a browser may refuse to make one that narrow; the result then says the width it was really scanned at. The test ran headless at 768 px.
+- **Cross-page findings cannot be ignored or baselined**, and are not part of any score. They are listed in the panel and the site report only.
+- **Toolbars and pagination** are not compared across pages (the plan lists them): they have no standard element or role that most applications use. An application built from plain `div`s with no `h1`, `header`, `nav` or roles has no shared parts to compare.
+- **Cross-page comparison was tuned on the made-up application only.** It has not been run on a real application, so its noise there is unknown.
+- **The site report** is built from the single-page report's styles, not from the accessibility extension's multi-page template.
+- **Opening a site-scan page shows its results read-only.** The accessibility extension can also open the page in the tester's tab and draw the issues on it; that is not built.
+- **The site scan was tested on a served test site**, not on a site with a login, a sitemap or thousands of pages; that logic is the accessibility extension's, copied unchanged.
+- **A broken image with `alt=""` and no size** takes no space, so it is not measured and not reported.
+- **The CI package is a folder of this repository**, not a published npm package.
 
 - Site scan (reuse `site-scan.ts`) and scans at several viewport widths (e.g. 1440, 1024, 768, 375).
 - **Cross-page consistency:** in a site scan, match shared parts across pages (header, page title, sidebar, tab bars, toolbars, pagination) by structure and compare them, e.g. the page title in the same position and font on every page, and the sidebar showing labels the same way on every page.
@@ -577,5 +632,7 @@ Fixture `fixtures/compliance-defects.html` and `compliance-clean.html`. **Copy t
 7. Status rows text about 20 px, larger than every other list on the page (about 16 px) (no rule: the design-scale audit lists the size and where it is used)
 8. Truncated event names end in three different ways: " - ...", " ..." and " - A..." (TXT-03)
 9. Header controls different heights: search about 45 px vs "Need Help?" about 33 px (LAY-10)
+
+10. The mark next to the product name points at a file that does not exist (IMG-01; added in Phase 6, not in the reference screenshot)
 
 **Checks that should pass:** stat card numbers same size and colour; stat card label spacing; left edges of left-column cards; right edges of right-column cards; status row heights; table row heights; Company/Personal toggle halves equal width.

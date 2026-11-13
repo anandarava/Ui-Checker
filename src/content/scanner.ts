@@ -14,7 +14,9 @@
 import { ENGINE_VERSION } from "@shared/constants";
 import { RULES } from "@shared/rules";
 import { withFindings } from "@shared/scoring";
-import type { DesignAudit, ElementRef, Finding, PeerGroup, RuleResult, ScaleKind, ScanOptions, ScanResult } from "@shared/types";
+import type { DesignAudit, ElementRef, Finding, PeerGroup, RuleResult, ScaleKind, ScanOptions, ScanResult, SharedPart } from "@shared/types";
+import { createFacts } from "./facts";
+import { findSharedParts } from "./parts";
 import { buildAudit, type RawScaleList } from "./audit";
 import { outerHtmlSnippet, uniqueSelector } from "./dom-utils";
 import { fingerprint, textSnippet } from "./fingerprint";
@@ -210,6 +212,23 @@ function describeFindings(run: RuleRun, refOf: (i: number) => ElementRef, rawGro
   });
 }
 
+/** The parts the page shares with the other pages of its site, for the cross-page comparison of a site scan. */
+function describeParts(snapshot: PageSnapshot, refOf: (i: number) => ElementRef): SharedPart[] {
+  const facts = createFacts(snapshot.elements);
+  return findSharedParts(snapshot.elements, facts).map((part) => {
+    const s = snapshot.elements[part.styled].style;
+    return {
+      key: part.key,
+      kind: part.kind,
+      name: part.name,
+      element: refOf(part.element),
+      ...(part.text ? { text: part.text } : {}),
+      style: { fontFamily: s.fontFamily, fontSize: s.fontSize, fontWeight: s.fontWeight, color: s.color, backgroundColor: facts.backdropOf(part.element) },
+      ...(part.items ? { items: part.items } : {}),
+    };
+  });
+}
+
 function newScanId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -258,6 +277,8 @@ export async function runScan(options: ScanOptions, onProgress: ProgressFn = () 
     findings,
     rules: ruleResults(options, run),
     audit,
+    // Only a scan of the whole page can be compared with other pages.
+    ...(options.scope === "page" ? { parts: describeParts(snapshot, refOf) } : {}),
     notScanned: snapshot.notScanned,
     warnings: readyWarnings(ready),
   };

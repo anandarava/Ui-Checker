@@ -6,8 +6,9 @@
  *   TXT-02  text shortened by the browser with nothing that holds the full text
  *   TXT-03  peers that shorten their text in different ways
  *   FMT-01  values of one column or list field written in different formats
+ *   IMG-01  an image that failed to load (PLAN.md, Phase 6)
  *
- * TXT-01, TXT-02 and the loose links of TYP-07 are page-wide: they are not
+ * TXT-01, TXT-02, IMG-01 and the loose links of TYP-07 are page-wide: they are not
  * about one peer group. Everything is read from the snapshot.
  */
 import type { ElementSnapshot } from "../snapshot";
@@ -483,6 +484,33 @@ export function runContentRules(ctx: RuleContext): void {
     for (const [key, pool] of pools) compare(pool, -1, `links ${key.split("|")[0]} on this background`, true);
   };
 
+  // ---------------------------------------------------------------------------
+  // IMG-01: an image that failed to load
+  // ---------------------------------------------------------------------------
+
+  const imageRule = (): void => {
+    if (!ctx.runs("IMG-01")) return;
+    for (const el of elements) {
+      const hasImage = el.tag === "img" || el.style.backgroundImage.includes("url(");
+      if (!hasImage || !shown(el.index)) continue;
+      ctx.looked("IMG-01");
+      if (el.brokenImage === null) continue;
+      const url = el.brokenImage.startsWith("data:") ? "an image written into the page" : el.brokenImage.length > 80 ? `…${el.brokenImage.slice(-79)}` : el.brokenImage;
+      ctx.report({
+        ruleId: "IMG-01",
+        element: el.index,
+        group: -1,
+        kind: "outlier",
+        property: el.tag === "img" ? "image" : "background image",
+        expected: "an image that loads",
+        actual: "failed to load",
+        values: [],
+        message: `${el.tag === "img" ? "This image" : "The background image of this element"} does not load: ${url}`,
+      });
+    }
+  };
+
+  imageRule();
   fullTextRule();
   cutOffRule();
   groupRules();

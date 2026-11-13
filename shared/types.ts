@@ -10,8 +10,8 @@ export type Severity = "High" | "Medium" | "Low";
 /** Result tabs: Typography / Layout & spacing / Group structure / Box style / Text & content. */
 export type RuleCategory = "typography" | "layout" | "group" | "box" | "content";
 
-/** "3A" core rules are built first, "3B" is the second wave (PLAN.md, Phase 3); "5" came with the page-wide audit. */
-export type RulePhase = "3A" | "3B" | "5";
+/** "3A" core rules are built first, "3B" is the second wave (PLAN.md, Phase 3); "5" came with the page-wide audit, "6" with the broken-image check. */
+export type RulePhase = "3A" | "3B" | "5" | "6";
 
 export type ToleranceUnit = "px" | "ratio" | "deltaE" | "exact";
 
@@ -280,11 +280,58 @@ export interface ScanResult {
   rules: RuleResult[];
   /** The design scale of the page (PLAN.md, Phase 5); absent in results of older scans. */
   audit?: DesignAudit;
+  /** The parts the page shares with the other pages of its site; a site scan compares them across pages. */
+  parts?: SharedPart[];
   /** Parts of the page the scan could not read (closed shadow roots, cross-origin frames, canvas...). */
   notScanned: string[];
   /** Things that make the measurements less reliable (fonts still loading, layout still changing). */
   warnings: string[];
 }
+
+/**
+ * A part a page shares with the other pages of its site: the page title, the
+ * header, the navigation, the footer or a tab bar (src/content/parts.ts).
+ */
+export interface SharedPart {
+  /** The same part has the same key on every page: "pageTitle", "navigation:side:1"... */
+  key: string;
+  kind: "pageTitle" | "header" | "navigation" | "footer" | "tabs";
+  /** As shown: "Page title", "Side navigation". */
+  name: string;
+  element: ElementRef;
+  /** The text of a page title. */
+  text?: string;
+  /** Text style of the part (of its first item with text, for a navigation or tab bar) and the background behind it. */
+  style: { fontFamily: string; fontSize: number; fontWeight: number; color: string; backgroundColor: string };
+  /** The links, buttons or tabs of a navigation or tab bar, in order. */
+  items?: Array<{ text: string; icon: boolean }>;
+}
+
+/** What the list of saved scans shows; the full result is loaded only when a scan is opened. */
+export interface SavedScanMeta {
+  id: string;
+  name: string;
+  url: string;
+  title: string;
+  /** When the scan ran. */
+  scannedAt: string;
+  /** When it was saved. */
+  savedAt: string;
+  score: number;
+  summary: ScanSummary;
+  tolerancePreset: TolerancePreset;
+  scope: ScanOptions["scope"];
+  /** Open issues (not for review, not excluded). */
+  issueCount: number;
+}
+
+export interface SavedScan {
+  meta: SavedScanMeta;
+  result: ScanResult;
+}
+
+/** Why the panel offers a rescan: the page went to another route, opened a dialog, or changed a lot. */
+export type PageChangeReason = "route" | "dialog" | "dom";
 
 export interface Settings {
   /** Name shown as "Prepared by" on HTML reports. */

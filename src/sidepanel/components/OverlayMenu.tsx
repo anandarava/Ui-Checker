@@ -13,8 +13,10 @@ export function useOverlaySync(): void {
   const tabId = useStore((s) => s.tabId);
   const result = useStore((s) => s.result);
   const showBadges = useStore((s) => s.showBadges);
+  const saved = useStore((s) => s.viewingSaved !== null);
   useEffect(() => {
-    if (tabId === null || !result) return;
+    // A saved scan belongs to a page that may no longer be this one: nothing is drawn for it.
+    if (tabId === null || !result || saved) return;
     void drawBadges(tabId, result, showBadges).then((res) => {
       if (!res.ok && showBadges) {
         const store = useStore.getState();
@@ -22,7 +24,7 @@ export function useOverlaySync(): void {
         store.showToast({ kind: "error", message: "The page has changed since the scan. Scan again to show the issues on the page." });
       }
     });
-  }, [tabId, result, showBadges]);
+  }, [tabId, result, showBadges, saved]);
 }
 
 /**

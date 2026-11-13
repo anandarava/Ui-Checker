@@ -10,7 +10,8 @@
  * Every message carries `type` and, where relevant, `tabId` so the side panel
  * (one per window) can ignore events from other tabs.
  */
-import type { ExportFormat, FindingStatus, ScaleKind, ScanOptions, ScanResult } from "./types";
+import type { SiteScanOptions, SiteScanState } from "./site-crawl";
+import type { ExportFormat, FindingStatus, PageChangeReason, ScaleKind, ScanOptions, ScanResult } from "./types";
 
 export type Message =
   // ---- Scanning ----
@@ -45,6 +46,39 @@ export type Message =
   | { type: "PICKED"; tabId: number; selector: string | null }
   /** Forget the scan result and remove everything the extension drew on the page (panel "Reset"). */
   | { type: "CS_RESET"; tabId: number }
+  /** CS -> UI: the page changed since the scan (a single-page app went to another route, a dialog opened). */
+  | { type: "PAGE_CHANGED"; tabId: number; reason: PageChangeReason }
+  // ---- Saved scans (UI -> SW) ----
+  /** Answers with SavedScanMeta[], newest first. */
+  | { type: "SAVED_SCANS_LIST" }
+  /** Save the last result of the tab under a name; with screenshots the open issues are photographed first. Answers with SavedScanMeta. */
+  | { type: "SAVED_SCAN_SAVE"; tabId: number; name: string; screenshots?: boolean }
+  /** Answers with SavedScan (metadata and the full result). */
+  | { type: "SAVED_SCAN_GET"; id: string }
+  | { type: "SAVED_SCAN_RENAME"; id: string; name: string }
+  | { type: "SAVED_SCAN_DELETE"; id: string }
+  /** Build a report of a saved scan. Answers with the file; the panel saves it. */
+  | { type: "SAVED_SCAN_EXPORT"; id: string; format: ExportFormat }
+  /** Build one report for several saved scans (an overview, what differs across them, then each page). Answers with the file. */
+  | { type: "SAVED_SCANS_EXPORT"; ids: string[]; format: ExportFormat }
+  // ---- Site scan (one at a time; the SW owns the state and broadcasts SITE_SCAN_STATE on every change) ----
+  | { type: "SITE_SCAN_GET" }
+  /** Find the pages of the site that `url` belongs to; ends in the "review" phase. */
+  | { type: "SITE_SCAN_DISCOVER"; url: string; options: SiteScanOptions }
+  /** Tick / untick listed pages and add addresses by hand (review phase, or between runs). */
+  | { type: "SITE_SCAN_SET_PAGES"; include?: Record<string, boolean>; add?: string[] }
+  /** Scan the ticked pages that are still pending (also resumes a paused run). */
+  | { type: "SITE_SCAN_START" }
+  /** Scan pages already scanned (or failed) again: the given indexes, or all of them. */
+  | { type: "SITE_SCAN_RESCAN"; indexes?: number[] }
+  | { type: "SITE_SCAN_PAUSE" }
+  | { type: "SITE_SCAN_STOP" }
+  /** The full result of one scanned page (index into `pages`). */
+  | { type: "SITE_SCAN_RESULT"; index: number }
+  /** One report for every scanned page. Answers with the file; the panel saves it. */
+  | { type: "SITE_SCAN_EXPORT"; format: ExportFormat }
+  | { type: "SITE_SCAN_CLEAR" }
+  | { type: "SITE_SCAN_STATE"; state: SiteScanState | null }
   // ---- State queries ----
   | { type: "GET_LAST_RESULT"; tabId: number }
   | { type: "RESET_RESULT"; tabId: number }

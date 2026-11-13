@@ -373,6 +373,17 @@
       "severity": "Medium",
       "enabled": true,
       "implemented": true
+    },
+    {
+      "id": "IMG-01",
+      "name": "Image does not load",
+      "category": "content",
+      "phase": "6",
+      "description": "An image, or the background image of an element, failed to load, so the page shows a gap or a broken-image icon.",
+      "fix": "Fix the address of the image, or remove the image.",
+      "severity": "High",
+      "enabled": true,
+      "implemented": true
     }
   ]
 }

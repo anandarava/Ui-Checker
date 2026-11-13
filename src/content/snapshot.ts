@@ -131,6 +131,8 @@ export interface ElementSnapshot {
   textTail: string;
   /** A link that leads somewhere: an `a` with an `href`, or `role="link"`. */
   link: boolean;
+  /** Address of an image the element shows (its own, or its background) that failed to load; null when none did. */
+  brokenImage: string | null;
 }
 
 export interface FrameSnapshot {
@@ -267,6 +269,8 @@ interface FrameContext {
   /** Left edge of the area that can be scrolled to (negative in right-to-left documents). */
   minX: number;
   minY: number;
+  /** Addresses that failed to load in this document. */
+  failed: Set<string>;
 }
 
 interface ParentContext {
@@ -284,7 +288,7 @@ function frameContext(index: number, view: Window, originX: number, originY: num
   // A right-to-left document scrolls towards negative x.
   const rtl = view.getComputedStyle(root).direction === "rtl";
   const minX = rtl ? originX - Math.max(0, root.scrollWidth - root.clientWidth) : originX;
-  return { index, view, dx, dy, range: view.document.createRange?.() ?? null, minX, minY: originY };
+  return { index, view, dx, dy, range: view.document.createRange?.() ?? null, minX, minY: originY, failed: failedResources(view) };
 }
 
 function overflows(value: string): boolean {
@@ -363,6 +367,47 @@ function isTruncated(el: Element, style: CSSStyleDeclaration): boolean {
 
 function hasFullText(el: Element): boolean {
   return Boolean(el.getAttribute("title")?.trim() || el.getAttribute("aria-label")?.trim() || el.getAttribute("aria-describedby")?.trim());
+}
+
+/** Addresses the browser asked for in this document and got an error status for (404, 500...). */
+function failedResources(view: Window): Set<string> {
+  const failed = new Set<string>();
+  try {
+    for (const entry of view.performance.getEntriesByType("resource")) {
+      const status = (entry as PerformanceResourceTiming & { responseStatus?: number }).responseStatus;
+      if (typeof status === "number" && status >= 400) failed.add(entry.name);
+    }
+  } catch {
+    /* no resource timing in this document */
+  }
+  return failed;
+}
+
+const SVG_URL = /\.svg([?#]|$)|^data:image\/svg/i;
+
+/**
+ * The address of an image the element shows that failed to load.
+ *
+ * Nothing is loaded again and nothing is waited for: the browser's own verdict
+ * is read. An image that is still loading (a lazy image further down the
+ * page) is not broken; it has no verdict yet.
+ */
+function brokenImageOf(el: Element, tag: string, style: CSSStyleDeclaration, failed: Set<string>): string | null {
+  if (tag === "img" || (tag === "input" && el.getAttribute("type") === "image")) {
+    const img = el as HTMLImageElement;
+    const url = img.currentSrc || img.src || "";
+    if (url && failed.has(url)) return url;
+    // Loaded with nothing to draw. An SVG without a size of its own also reports no size, so it is only
+    // counted when the server answered with an error.
+    if (tag === "img" && url && img.complete === true && img.naturalWidth === 0 && img.naturalHeight === 0 && !SVG_URL.test(url)) return url;
+    return null;
+  }
+  const background = style.backgroundImage;
+  if (!background || background === "none" || failed.size === 0) return null;
+  for (const match of background.matchAll(/url\((["']?)(.*?)\1\)/g)) {
+    if (failed.has(match[2])) return match[2];
+  }
+  return null;
 }
 
 function count(n: number, one: string, many: string): string {
@@ -451,6 +496,7 @@ export function takeSnapshot(root: Element, view: Window = window): PageSnapshot
         titled: hasFullText(el),
         textTail: text.tail,
         link: (tag === "a" && el.hasAttribute("href")) || el.getAttribute("role") === "link",
+        brokenImage: brokenImageOf(el, tag, style, frame.failed),
       });
       nodes.push(el);
       if (parent.index >= 0) elements[parent.index].children.push(index);

@@ -12,7 +12,7 @@
   { "id": "D1", "rule": "LAY-01", "target": "card-org", "note": "Card top padding 29px, 20px in the other four cards" },
   { "id": "D2", "rule": "LAY-02", "target": "card-details", "note": "Card bottom padding 68px against 20px at the top" },
   { "id": "D3", "rule": "LAY-06", "target": "holiday-grid", "note": "Grid starts 70px from the card edge, content of the other cards starts at 20px" },
-  { "id": "D4", "rule": "LAY-03", "target": "holiday-grid", "note": "Column gap 68px, row gap 19px" },
+  { "id": "D4", "rule": "LAY-03", "review": true, "target": "holiday-grid", "note": "Column gap 68px, row gap 19px. The columns are evenly spaced and so are the rows, so it is listed for review" },
   { "id": "D5", "rule": "TYP-05", "target": "ev-loc-1", "note": "Location is a blue link in the first event card and plain black text in the second" },
   { "id": "D6", "rule": "LAY-07", "target": "ev-loc-1", "note": "Location item sits 3px lower than the date and time items of its row" },
   { "id": "D7", "rule": "TYP-02", "target": "who-name", "note": "Value text 22px, the other two values of the row are 17px" },
@@ -23,7 +23,8 @@
   { "id": "D12", "rule": "BOX-02", "review": true, "target": "tile-1", "note": "Inner cards of two sections styled differently: event cards have a border, holiday tiles a shadow" },
   { "id": "D13", "rule": "GRP-02", "review": true, "target": "nav-home", "note": "One of three navigation items has no label" },
   { "id": "D14", "rule": "LAY-08", "target": "col-left", "note": "Left column ends above the right column" },
-  { "id": "D15", "rule": "LAY-04", "target": "who", "note": "First column of the row starts 4px lower than the other two" }
+  { "id": "D15", "rule": "LAY-04", "target": "who", "note": "First column of the row starts 4px lower than the other two" },
+  { "id": "D16", "rule": "LAY-03", "target": "tile-5", "note": "The date of one holiday tile sits 12px below the name, 4px in the other five" }
 ]</script>
 <style>
   * { box-sizing: border-box; }
@@ -183,7 +184,7 @@
             <div class="tile"><div class="tile-name">Harvest Festival</div><div class="tile-date">Jan 15, 2026</div></div>
             <div class="tile"><div class="tile-name">Republic Day</div><div class="tile-date">Jan 26, 2026</div></div>
             <div class="tile"><div class="tile-name">Spring New Year</div><div class="tile-date">Mar 19, 2026</div></div>
-            <div class="tile"><div class="tile-name">Monsoon Festival</div><div class="tile-date">Sep 14, 2026</div></div>
+            <div class="tile" data-fx="tile-5"><div class="tile-name">Monsoon Festival</div><div class="tile-date"{{#D16}} style="margin-top: 12px"{{/D16}}>Sep 14, 2026</div></div>
             <div class="tile"><div class="tile-name">Autumn Festival</div><div class="tile-date">Oct 20, 2026</div></div>
           </div>
         </section>

@@ -232,9 +232,12 @@ TYP-01, TYP-02, TYP-03, TYP-05, LAY-01, LAY-02, LAY-03, LAY-04, LAY-05, LAY-06.
 How the rules work, where the plan left it open:
 
 - **LAY-01 / LAY-02** measure the gap from each edge of a drawn container to its content, but only on sides where the content sits against the padding (a centred child or a stretched card leaves free space, not padding). The margin of the first or last child is taken off. LAY-02 is relative like every other rule: it reports a container that is lopsided **while its peers are even**. One-sided padding on its own is normal (the clean fixtures have many cases), so a lone container is not judged. Tables and table cells are left out.
-- **LAY-03** reports on the container: unequal gaps between neighbouring peers, a grid whose row and column gaps differ by more than 2 times, the same group spaced differently in two containers, and two neighbouring gaps in a row that are nearly but not equal (an item meant to sit in the middle). A gap more than twice the usual one is a separator, not a mistake. Stacked blocks of text are not compared: their spacing follows their margins.
+- **LAY-03** reports on the container: unequal gaps between neighbouring peers, the same group spaced differently in two containers, and two neighbouring gaps in a row that are nearly but not equal (an item meant to sit in the middle). A gap more than twice the usual one is a separator, not a mistake. Stacked blocks of text are not compared: their spacing follows their margins.
+  - **Row gap against column gap** (changed after Phase 6): a grid whose row and column gaps differ by more than 2 times is listed **for review**, not as a defect. A grid may be spaced differently across and down on purpose; what must hold is that the columns are evenly spaced among themselves and the rows among themselves, and that is still a definite finding.
+  - **Gap between the parts of an item** (added after Phase 6): in items built the same way (a tile with a name and a date), the gap between two stacked parts is compared with the same gap in the peers. Reported only when nearly all items agree (three quarters or more, and at most 15% differ): where the gaps vary from item to item, the parts are spread over a stretched card.
 - **LAY-04** has two parts. Peers in one row (or one column) must start on the same line, read from the container's `align-items`. And a **near miss**: an element whose edge is 2–8 px away from an edge that two or more nearby elements share, and that shares its own edge with nothing. Offsets of 8 px or more are treated as deliberate (an indent, another row).
 - **LAY-05** compares boxes without children (avatars, icons, images, fields) and only when nearly all members share the size; a size that just follows the text is ignored.
+  - **Boxes with content** (added after Phase 6): tiles and cards of one group are compared too. A width is reported when nearly all members share one and the odd box is wider than its text needs (a button that hugs a longer label is not reported). A height is reported when it is not explained by the content: a card that is taller because its text is longer is not reported, nor is the card next to it that the row stretched. A taller row is reported once, on its first box.
 - **LAY-06** reports a block that starts further in than the content edge of its own section, when the blocks of these sections normally start at that edge.
 - **Needs review instead of a defect:** a member that differs from its peers in colour only (colour often carries a meaning: a status, the current item), and a member that differs in several typographic ways at once (more likely another kind of element).
 - **Pair findings** sit on the second element in document order and name both values, since there is no telling which one is wrong.
@@ -564,7 +567,7 @@ Taken from the reference screenshot.
 1. Organization title top inset 42 px vs 33 px in other cards (LAY-01)
 2. My Details bottom inset about 68 px vs 34 px top (LAY-02)
 3. Holidays grid starts 70 px from card edge vs 20 px elsewhere (LAY-06)
-4. Holiday tiles: column gap 68 px vs row gap 19 px (LAY-03)
+4. Holiday tiles: column gap 68 px vs row gap 19 px (LAY-03, needs review: the columns are evenly spaced and so are the rows)
 5. "PJR Stadium" blue link vs "Equinox" black text (TYP-05)
 6. Location text lower than date and time text (LAY-07). In the fixture, seed this at 3 px so it is above the 2 px tolerance; the 1–2 px seen in the screenshot is below it and would not be reported
 7. My Details: name 22 px vs other values 17 px; label/value order inverted; column tops misaligned (TYP-02, LAY-04)
@@ -575,6 +578,7 @@ Taken from the reference screenshot.
 12. Event cards white with border vs holiday tiles grey with shadow (BOX-02, low)
 13. Sidebar: Home without label, Me and Organization with labels (structure, low)
 14. Left column ends 50 px above right column (LAY-08)
+15. One holiday tile has its date 12 px below the name, the other five 4 px (LAY-03; added after Phase 6, not in the reference screenshot)
 
 ## Appendix B: Expected peer groups on the dashboard
 

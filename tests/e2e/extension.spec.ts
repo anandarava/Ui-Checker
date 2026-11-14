@@ -265,8 +265,9 @@ test.describe("extension", () => {
     expect(result.score).toBeLessThan(100);
     const open = result.findings.filter((f) => f.type === "Definite").length;
     await expect(panel.getByRole("tab", { name: new RegExp(`^All ${open}$`) })).toBeVisible();
-    // For review: the two card styles, the navigation item without a label and the two link styles.
-    await expect(panel.getByRole("tab", { name: /^Needs review 3$/ })).toBeVisible();
+    // For review: the two card styles, the navigation item without a label, the two link styles, and the
+    // holiday grid whose row gap and column gap differ.
+    await expect(panel.getByRole("tab", { name: /^Needs review 4$/ })).toBeVisible();
     await expect(panel.getByRole("button", { name: "Rescan page" })).toBeVisible();
 
     // The list is grouped by rule; a rule expands to its elements.
@@ -565,7 +566,8 @@ test.describe("extension", () => {
     const partial = part.data as ScanResult;
     expect(partial.elementsScanned).toBeLessThan(whole.elementsScanned);
     expect(partial.elementsScanned).toBe(19); // the grid, 6 tiles, 12 texts
-    expect(partial.findings.map((x) => x.ruleId)).toEqual(["LAY-03"]);
+    // The grid whose row and column gaps differ (for review) and the tile whose date sits lower than in its peers.
+    expect(partial.findings.map((x) => `${x.ruleId} ${x.type}`)).toEqual(["LAY-03 Review", "LAY-03 Definite"]);
     const missing = await sendToBackground(helper, { type: "SCAN_START", tabId, options: { ...SCAN_OPTIONS, scope: "selector", selector: "#nope" } });
     expect(missing.ok).toBe(false);
     expect(missing.error).toMatch(/No element matches/);

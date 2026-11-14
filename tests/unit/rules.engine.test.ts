@@ -507,3 +507,71 @@ describe("second wave: group structure and box style", () => {
     expect(RULES).toHaveLength(28);
   });
 });
+
+describe("tiles and cards of one group", () => {
+  const TILE = "border-top-width:1px; border-right-width:1px; border-bottom-width:1px; border-left-width:1px; background-color:rgb(250, 250, 250)";
+  /** Six tiles in two columns, each with a name and a date. `boxes[n]` overrides the box of tile n; `dates[n]` the box of its date. */
+  function tiles(boxes: Record<number, string> = {}, dates: Record<number, string> = {}, columnGap = 20, rowGap = 20): string {
+    let out = "";
+    for (let n = 1; n <= 6; n++) {
+      const x = ((n - 1) % 2) * (200 + columnGap);
+      const y = Math.floor((n - 1) / 2) * (70 + rowGap);
+      const box = boxes[n] ?? `${x} ${y} 200 70`;
+      const [bx, by] = box.split(" ").map(Number);
+      out += `<div id="t${n}" data-box="${box}" style="${TILE}"><h4 id="n${n}" data-box="${bx + 10} ${by + 14} 180 22" data-text-box="${bx + 50} ${by + 14} 100 22" style="${TEXT}">Name ${n}</h4><p id="d${n}" data-box="${dates[n] ?? `${bx + 10} ${by + 40} 180 16`}" data-text-box="${bx + 60} ${by + 40} 80 16" style="${TEXT}; font-size:13px">Jan 0${n}, 2026</p></div>`;
+    }
+    return `<div id="grid" data-box="0 0 ${400 + columnGap} ${210 + 2 * rowGap}">${out}</div>`;
+  }
+
+  it("says nothing about six tiles that are the same", () => {
+    expect(scan(tiles()).keys).toEqual([]);
+  });
+
+  it("lists a row gap that differs from the column gap for review: both may be chosen on purpose", () => {
+    const found = scan(tiles({}, {}, 33, 15));
+    expect(found.keys).toEqual(["LAY-03 grid"]);
+    expect(finding(found, "LAY-03", "grid")).toMatchObject({ type: "Review", severity: "Low", actual: "33px between columns, 15px between rows" });
+  });
+
+  it("still reports columns, or rows, that are not evenly spaced among themselves", () => {
+    // The third row sits 9px lower than the row gap of the first two.
+    const html = tiles({ 5: "0 189 200 70", 6: "220 189 200 70" });
+    const found = scan(html, "normal", ["LAY-03"]);
+    expect(found.keys).toEqual(["LAY-03 grid"]);
+    expect(finding(found, "LAY-03", "grid")).toMatchObject({ type: "Definite", message: "The gaps between the items of this container are not equal: 20px, 29px." });
+  });
+
+  it("LAY-05 reports the tile that is wider than its peers", () => {
+    const found = scan(tiles({ 4: "220 90 214 70" }), "normal", ["LAY-05"]);
+    expect(found.keys).toEqual(["LAY-05 t4"]);
+    expect(finding(found, "LAY-05", "t4")).toMatchObject({ actual: "214 × 70px", expected: "200 × 70px" });
+  });
+
+  it("LAY-05 reports a row of tiles that is taller than the others once, on its first tile", () => {
+    const found = scan(tiles({ 3: "0 90 200 96", 4: "220 90 200 96" }), "normal", ["LAY-05"]);
+    expect(found.keys).toEqual(["LAY-05 t3"]);
+    expect(finding(found, "LAY-05", "t3")).toMatchObject({ actual: "200 × 96px", expected: "200 × 70px" });
+  });
+
+  it("LAY-05 does not report a tile that is taller because its content is taller", () => {
+    // The date of tile 4 is two lines high, so the tile and the tile next to it are taller.
+    const found = scan(tiles({ 3: "0 90 200 86", 4: "220 90 200 86" }, { 4: "230 130 180 32" }), "normal", ["LAY-05"]);
+    expect(found.keys).toEqual([]);
+  });
+
+  it("LAY-03 reports the tile whose date sits further below the name than in its peers", () => {
+    // The row of tile 4 is 10px taller, and the last row starts 10px lower.
+    const found = scan(tiles({ 3: "0 90 200 80", 4: "220 90 200 80", 5: "0 190 200 70", 6: "220 190 200 70" }, { 4: "230 140 180 16" }), "normal", ["LAY-03", "LAY-05"]);
+    expect(found.keys).toEqual(["LAY-03 t4"]);
+    const f = finding(found, "LAY-03", "t4");
+    expect(f).toMatchObject({ type: "Definite", property: "gap between part 1 and part 2", actual: "14px", expected: "4px" });
+    expect(f.message).toBe("The gap between part 1 and part 2 of this item is 14px; in 5 of the 6 items of this group it is 4px.");
+    expect(f.marks?.[0]).toMatchObject({ label: "14px", box: { y: 126, height: 14 } });
+  });
+
+  it("LAY-03 does not compare the gaps of items whose gaps vary from item to item", () => {
+    // Stretched cards: the space between the parts is what is left over.
+    const found = scan(tiles({}, { 2: "230 44 180 16", 3: "10 134 180 16", 5: "10 228 180 16" }), "normal", ["LAY-03"]);
+    expect(found.keys).toEqual([]);
+  });
+});

@@ -203,12 +203,12 @@ export function runLayoutRules(ctx: RuleContext): void {
     // "Row gap and column gap very different": 2 times under the normal preset.
     const lopsided = 1 + ctx.factor;
     const list = (values: number[]): string => Array.from(new Set(values.map(px))).join(", ");
-    const report = (container: number, group: number, actual: string, message: string, values: number[], kind: "outlier" | "pair" | "noMajority" = "noMajority"): void => {
+    const report = (container: number, group: number, actual: string, message: string, values: number[], kind: "outlier" | "pair" | "noMajority" = "noMajority", review = false): void => {
       const counts = new Map<string, number>();
       for (const v of values) counts.set(px(v), (counts.get(px(v)) ?? 0) + 1);
       // The spacing of a toolbar or button group is the business of LAY-10.
       const ruleId = group >= 0 && groups[group].controls && ctx.runs("LAY-10") ? "LAY-10" : "LAY-03";
-      ctx.report({ ruleId, element: container, group, kind, severity: "Medium", property: "gap between items", expected: null, actual, values: Array.from(counts, ([value, count]) => ({ value, count })), message });
+      ctx.report({ ruleId, element: container, group, kind, severity: review ? "Low" : "Medium", ...(review ? { type: "Review" as const } : {}), property: "gap between items", expected: null, actual, values: Array.from(counts, ([value, count]) => ({ value, count })), message });
     };
 
     for (const g of ctx.order) {
@@ -260,7 +260,9 @@ export function runLayoutRules(ctx: RuleContext): void {
           const b = median(across);
           // Items that touch, or wrap like words, have no gap to compare.
           if (Math.min(a, b) >= MIN_GAP && Math.max(a, b) / Math.min(a, b) > lopsided) {
-            report(container, g, `${px(a)} between columns, ${px(b)} between rows`, `The gap between columns (${px(a)}) and the gap between rows (${px(b)}) of this grid are very different.`, [a, b]);
+            // A grid may be spaced differently across and down on purpose. What must hold is that the columns are
+            // evenly spaced and the rows are evenly spaced, which is checked above; this is listed for review only.
+            report(container, g, `${px(a)} between columns, ${px(b)} between rows`, `The gap between columns (${px(a)}) and the gap between rows (${px(b)}) of this grid are very different. The columns are evenly spaced and so are the rows, so this may be on purpose.`, [a, b], "noMajority", true);
           }
         }
       }
@@ -281,6 +283,56 @@ export function runLayoutRules(ctx: RuleContext): void {
           report(second.el, g, px(second.value), `The same items are spaced differently in these two containers: ${list(all)}.`, all, "pair");
         }
       }
+    }
+
+    // The gap between the parts of an item (the name and the date of a tile), compared with the same gap in
+    // its peers. Only items built the same way are compared: the same number of parts, stacked the same way.
+    for (const g of ctx.order) {
+      const group = groups[g];
+      if (group.kind === "level" || group.members.length < 3) continue;
+      const built = group.core.filter((m) => inFlow(m) && !facts.isRow(m) && !TABLE_BOXES.has(elements[m].tag) && flowChildren(m).length >= 2 && elements[m].text === "");
+      if (built.length < 3) continue;
+      const parts = flowChildren(built[0]).length;
+      const same = built.filter((m) => flowChildren(m).length === parts && !ctx.reported("LAY-03", m));
+      if (same.length < 3) continue;
+      let looked = false;
+      for (let k = 0; k + 1 < parts; k++) {
+        const entries: Array<Entry<number>> = [];
+        const where = new Map<number, Mark>();
+        for (const m of same) {
+          const kids = flowChildren(m);
+          const a = elements[kids[k]];
+          const b = elements[kids[k + 1]];
+          // Stacked parts: the space between them. Parts in one row are placed by the row.
+          if (sameRow(a, b) || b.box.y < bottom(a) - 1 || a.style.transform !== "none" || b.style.transform !== "none") continue;
+          const gap = b.box.y - bottom(a);
+          entries.push({ el: m, value: gap });
+          where.set(m, { box: { x: Math.min(a.box.x, b.box.x), y: bottom(a), width: Math.max(a.box.width, b.box.width), height: Math.max(gap, 1) }, label: px(gap) });
+        }
+        if (entries.length < 3) continue;
+        looked = true;
+        const verdict = judge(bucketNumbers(entries, tolerance, px));
+        // Only when nearly all items agree. Where the gaps vary from item to item, the parts are spread
+        // over the height of a stretched card: that space is what is left over, not a spacing choice.
+        if (verdict.kind !== "outlier" || verdict.expected.entries.length < entries.length * 0.75 || verdict.outliers.length > Math.max(1, Math.floor(entries.length * 0.15))) continue;
+        for (const o of verdict.outliers) {
+          if (ctx.reported("LAY-03", o.el)) continue;
+          ctx.report({
+            ruleId: "LAY-03",
+            element: o.el,
+            group: g,
+            kind: "outlier",
+            severity: ctx.severity("LAY-03", verdict),
+            property: `gap between part ${k + 1} and part ${k + 2}`,
+            expected: verdict.expected.label,
+            actual: px(o.value),
+            values: valueCounts(verdict.buckets),
+            message: `The gap between part ${k + 1} and part ${k + 2} of this item is ${px(o.value)}; in ${verdict.expected.entries.length} of the ${entries.length} items of this group it is ${verdict.expected.label}.`,
+            marks: [where.get(o.el)!],
+          });
+        }
+      }
+      if (looked) ctx.looked("LAY-03");
     }
 
     // Two neighbouring gaps in a row that are nearly, but not, equal: an item that
@@ -345,6 +397,7 @@ export function runLayoutRules(ctx: RuleContext): void {
       for (const [el, { expected, verdict }] of odd) {
         const box = elements[el].box;
         const size = (w: number, h: number): string => `${Math.round(w * 10) / 10} × ${px(h)}`;
+        if (ctx.reported("LAY-05", el)) continue;
         const want = size(expected.width ?? box.width, expected.height ?? box.height);
         ctx.report({
           ruleId: "LAY-05",
@@ -356,6 +409,97 @@ export function runLayoutRules(ctx: RuleContext): void {
           expected: want,
           actual: size(box.width, box.height),
           values: verdict.kind === "same" ? [] : valueCounts(verdict.buckets),
+          message: `This box is ${size(box.width, box.height)}; its peers are ${want}.`,
+        });
+      }
+    }
+  };
+
+  /**
+   * LAY-05 for boxes with content: tiles and cards of one group should be the
+   * same size. A box is only reported when its size is not explained by its
+   * content: a button that hugs a longer label, or a card that is taller
+   * because its text is longer, differs for a reason.
+   */
+  const boxSizeRule = (): void => {
+    if (!ctx.runs("LAY-05")) return;
+    const tolerance = ctx.tolerance("LAY-05");
+    const size = (w: number, h: number): string => `${Math.round(w * 10) / 10} × ${px(h)}`;
+
+    /** Left and right end of the text inside the element, or null when it has none. */
+    const textSpan = (i: number): { left: number; right: number } | null => {
+      let span: { left: number; right: number } | null = null;
+      const walk = (n: number): void => {
+        const t = elements[n].textBox;
+        if (t) span = span ? { left: Math.min(span.left, t.x), right: Math.max(span.right, t.x + t.width) } : { left: t.x, right: t.x + t.width };
+        for (const c of elements[n].children) walk(c);
+      };
+      walk(i);
+      return span;
+    };
+    /** True when the box is wider than its text needs: its width is set by the layout, not by what is in it. */
+    const widthIsSet = (i: number): boolean => {
+      const span = textSpan(i);
+      if (!span) return true;
+      const s = elements[i].style;
+      return elements[i].box.width - s.padding.left - s.padding.right - s.borderWidth.left - s.borderWidth.right - (span.right - span.left) > 2;
+    };
+    /** From the top of the first part to the bottom of the last. */
+    const contentHeight = (i: number): number => {
+      const kids = flowChildren(i);
+      if (kids.length === 0) return 0;
+      return Math.max(...kids.map((k) => bottom(elements[k]))) - Math.min(...kids.map((k) => elements[k].box.y));
+    };
+
+    for (const g of ctx.order) {
+      const group = groups[g];
+      if (group.kind === "level") continue;
+      const members = group.members.filter(
+        (i) => elements[i].children.length > 0 && facts.hasBox(i) && inFlow(i) && !facts.isCell(i) && !facts.isRow(i) && !TABLE_BOXES.has(elements[i].tag) && elements[i].style.transform === "none" && !ctx.reported("LAY-05", i),
+      );
+      if (members.length < 3) continue;
+      ctx.looked("LAY-05");
+      const odd = new Map<number, { width?: number; height?: number; verdict: Verdict<number> }>();
+      const note = (el: number, axis: "width" | "height", expected: number, verdict: Verdict<number>): void => {
+        odd.set(el, { ...(odd.get(el) ?? { verdict }), [axis]: expected });
+      };
+
+      // Width: nearly all members share it, and the odd one is not just hugging its text.
+      const widths = judge(bucketNumbers(members.map((el) => ({ el, value: elements[el].box.width })), tolerance, px));
+      if (widths.kind === "outlier" && widths.outliers.length <= Math.max(1, Math.floor(members.length * 0.15))) {
+        for (const o of widths.outliers) if (widthIsSet(o.el)) note(o.el, "width", widths.expected.entries[0].value, widths);
+      }
+
+      // Height: most members share it. A box that is taller because its content is taller differs for a
+      // reason, and so does the box next to it in the row, which the row stretched to the same height.
+      const heights = judge(bucketNumbers(members.map((el) => ({ el, value: elements[el].box.height })), tolerance, px));
+      if (heights.kind === "outlier" && heights.expected.entries.length * 2 > members.length && heights.outliers.length <= Math.max(1, Math.floor(members.length / 3))) {
+        const usual = median(heights.expected.entries.map((e) => contentHeight(e.el)));
+        const byContent = heights.outliers.filter((o) => Math.abs(contentHeight(o.el) - usual) > tolerance || ctx.reported("LAY-03", o.el));
+        const sharesRow = (a: number, b: number): boolean => sameRow(elements[a], elements[b]) && Math.abs(elements[a].box.height - elements[b].box.height) <= tolerance;
+        const noted: number[] = [];
+        for (const o of heights.outliers.slice().sort((a, b) => a.el - b.el)) {
+          if (byContent.includes(o) || byContent.some((c) => sharesRow(c.el, o.el))) continue;
+          // Boxes of one row are stretched to one height: the row is reported once, on its first box.
+          if (noted.some((n) => sharesRow(n, o.el))) continue;
+          noted.push(o.el);
+          note(o.el, "height", heights.expected.entries[0].value, heights);
+        }
+      }
+
+      for (const [el, found] of odd) {
+        const box = elements[el].box;
+        const want = size(found.width ?? box.width, found.height ?? box.height);
+        ctx.report({
+          ruleId: "LAY-05",
+          element: el,
+          group: g,
+          kind: "outlier",
+          severity: ctx.severity("LAY-05", found.verdict),
+          property: "size",
+          expected: want,
+          actual: size(box.width, box.height),
+          values: found.verdict.kind === "same" ? [] : valueCounts(found.verdict.buckets),
           message: `This box is ${size(box.width, box.height)}; its peers are ${want}.`,
         });
       }
@@ -660,6 +804,7 @@ export function runLayoutRules(ctx: RuleContext): void {
   paddingRules();
   gapRules();
   sizeRule();
+  boxSizeRule();
   sectionInsetRule();
   if (ctx.runs("LAY-04")) {
     peerEdgeRule();

@@ -125,7 +125,11 @@ test.describe("rules", () => {
     expect(by("LAY-02", "card-details")).toMatchObject({ actual: "bottom 68px, top 20px" });
     expect(by("LAY-05", "avatar-2")).toMatchObject({ actual: "44 × 44px", expected: "40 × 40px" });
     expect(by("LAY-06", "holiday-grid")).toMatchObject({ actual: "70px", expected: "20px" });
-    expect(by("LAY-03", "holiday-grid").actual).toBe("68px between columns, 19px between rows");
+    // A grid may be spaced differently across and down: listed for review, not as a defect.
+    expect(by("LAY-03", "holiday-grid")).toMatchObject({ type: "Review", severity: "Low", actual: "68px between columns, 19px between rows" });
+    expect(by("LAY-03", "tile-5")).toMatchObject({ type: "Definite", kind: "outlier", property: "gap between part 1 and part 2", actual: "12px", expected: "4px" });
+    // The tile is taller because of that gap, and the two tiles of its row with it: no size finding on top.
+    expect(findings.filter((f) => f.ruleId === "LAY-05").map((f) => f.within[0])).toEqual(["avatar-2"]);
     expect(by("LAY-04", "who").message).toBe("The top edge of this element is 4px lower than its 2 peers.");
     expect(by("LAY-04", "page-title").message).toContain("4px to the right of the edge that");
     expect(by("TYP-05", "ev-loc-1")).toMatchObject({ actual: "rgb(11, 74, 143)", expected: "rgb(17, 17, 17)" });

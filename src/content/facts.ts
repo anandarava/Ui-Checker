@@ -44,6 +44,8 @@ export interface Facts {
   isControl(i: number): boolean;
   /** A control or a link. */
   isInteractive(i: number): boolean;
+  /** Inside preformatted code: its coloured words are syntax highlighting, not parts of the interface. */
+  inCode(i: number): boolean;
 }
 
 export function createFacts(elements: ElementSnapshot[]): Facts {
@@ -100,5 +102,17 @@ export function createFacts(elements: ElementSnapshot[]): Facts {
     return isControl(i) || INTERACTIVE_TAGS.has(el.tag) || (el.role !== null && INTERACTIVE_ROLES.has(el.role));
   };
 
-  return { kindOf, isRow, isCell, backdropOf, hasBox, inState, isControl, isInteractive };
+  const code = new Map<number, boolean>();
+  const inCode = (i: number): boolean => {
+    if (i < 0) return false;
+    let value = code.get(i);
+    if (value === undefined) {
+      const parent = elements[i].parent;
+      value = elements[i].tag === "pre" || elements[i].tag === "code" || inCode(parent);
+      code.set(i, value);
+    }
+    return value;
+  };
+
+  return { kindOf, isRow, isCell, backdropOf, hasBox, inState, isControl, isInteractive, inCode };
 }

@@ -78,11 +78,12 @@ export function runRules(elements: ElementSnapshot[], groups: RawGroup[], option
   const seen = new Set<string>();
   const factor = PRESET_FACTOR[options.tolerancePreset] ?? 1;
 
+  const facts = createFacts(elements);
   const context: RuleContext = {
     elements,
     groups,
     order: groups.map((_, i) => i).sort((a, b) => groups[b].members.length - groups[a].members.length || a - b),
-    facts: createFacts(elements),
+    facts,
     runs: (ruleId) => active.has(ruleId),
     tolerance: (ruleId) => {
       // A tolerance the user set for this rule wins over the preset.
@@ -97,6 +98,8 @@ export function runRules(elements: ElementSnapshot[], groups: RawGroup[], option
     report: (finding) => {
       const key = `${finding.ruleId}|${finding.element}`;
       if (seen.has(key) || !active.has(finding.ruleId)) return;
+      // The words of a code sample are coloured and spaced by syntax highlighting, not by the design.
+      if (facts.inCode(finding.element)) return;
       seen.add(key);
       findings.push({ severity: getRule(finding.ruleId)?.severity ?? "Medium", type: "Definite", ...finding });
     },

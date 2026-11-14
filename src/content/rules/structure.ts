@@ -133,6 +133,26 @@ export function runStructureRules(ctx: RuleContext): void {
         have.set(part, owners);
       }
       const count = (m: number): number => parts.filter((p) => have.get(p)?.has(m)).length;
+      /**
+       * True when the member holds, in place of the part, an element of the same tag and size that only
+       * looks different: initials where its peers have a photo, a filled star where they have an empty
+       * one, an icon in another colour. The part is there; its look is the business of other rules.
+       */
+      const hasLookalike = (m: number, part: number): boolean => {
+        const sample = elements[groups[part].members[0]];
+        const inPart = new Set(groups[part].members);
+        const walk = (n: number, depth: number): boolean => {
+          for (const c of elements[n].children) {
+            const el = elements[c];
+            // The same kind of thing: drawn without text like the part, or a drawn box with text in it (initials).
+            const alike = sample.text !== "" ? el.text !== "" : el.text === "" || facts.hasBox(c);
+            if (!inPart.has(c) && alike && el.tag === sample.tag && Math.abs(el.box.width - sample.box.width) <= 2 && Math.abs(el.box.height - sample.box.height) <= 2) return true;
+            if (depth < 8 && walk(c, depth + 1)) return true;
+          }
+          return false;
+        };
+        return walk(m, 0);
+      };
       ctx.looked("GRP-02");
 
       for (const part of parts) {
@@ -141,7 +161,7 @@ export function runStructureRules(ctx: RuleContext): void {
         // A member lacks the part only when it has fewer parts than the members that have it:
         // an icon in another colour is another part, not a missing one.
         const typical = Array.from(owners, count).sort((a, b) => a - b)[Math.floor(owners.size / 2)];
-        const lacking = group.members.filter((m) => !owners.has(m) && count(m) < typical);
+        const lacking = group.members.filter((m) => !owners.has(m) && count(m) < typical && !hasLookalike(m, part));
         if (lacking.length === 0) continue;
         const share = owners.size / group.members.length;
         const what = noun(part);
@@ -265,7 +285,8 @@ export function runStructureRules(ctx: RuleContext): void {
     const s = elements[i].style;
     const b = s.borderWidth;
     const full = b.top > 0 && b.right > 0 && b.bottom > 0 && b.left > 0;
-    const visible = full && s.borderStyle !== "none" && s.borderColor !== "transparent" && !/^rgba\(.*,\s*0\)$/.test(s.borderColor);
+    // A border in the colour of the box's own fill cannot be seen.
+    const visible = full && s.borderStyle !== "none" && s.borderColor !== "transparent" && !/^rgba\(.*,\s*0\)$/.test(s.borderColor) && s.borderColor !== s.backgroundColor;
     const border = visible ? `${Math.round(b.top)}px ${s.borderStyle} ${s.borderColor} border` : "no border";
     return `${border}, ${s.boxShadow === "none" ? "no shadow" : `shadow ${s.boxShadow}`}`;
   };
@@ -292,10 +313,16 @@ export function runStructureRules(ctx: RuleContext): void {
     const report = (ruleId: string, property: string, group: number, verdict: Verdict<string>, total: number, onlyReview: boolean): void => {
       // Several members in another style are another kind of box, not a slip.
       if (verdict.kind !== "outlier" || verdict.outliers.length > Math.max(1, Math.floor(total * 0.15))) return;
-      // In a small group the odd one is as likely to be meant (a featured card): listed for review.
-      const review = onlyReview || total < CLEAR_GROUP;
       const values = valueCounts(verdict.buckets);
+      const usual = verdict.expected.entries[0].el;
       for (const o of verdict.outliers) {
+        // A box of quite another size, or in another colour (a status), is as likely another kind of box.
+        const a = elements[o.el].box;
+        const b = elements[usual].box;
+        const otherSize = Math.max(a.width, b.width) / Math.max(1, Math.min(a.width, b.width)) >= 1.25 || Math.max(a.height, b.height) / Math.max(1, Math.min(a.height, b.height)) >= 1.25;
+        const otherKind = !onlyReview && (otherSize || fillOf(o.el) !== fillOf(usual));
+        // In a small group the odd one is as likely to be meant (a featured card): listed for review.
+        const review = onlyReview || otherKind || total < CLEAR_GROUP;
         const actual = verdict.buckets.find((b) => b.entries.includes(o))?.label ?? "";
         ctx.report({
           ruleId,
@@ -307,7 +334,7 @@ export function runStructureRules(ctx: RuleContext): void {
           expected: verdict.expected.label,
           actual,
           values,
-          message: `The ${property} of this box is ${actual}; ${verdict.expected.entries.length} of the ${total} boxes in this group have ${verdict.expected.label}.${onlyReview ? " A background on its own may carry a meaning, such as a status." : review ? " In a group this small it may be on purpose, such as a featured item." : ""}`,
+          message: `The ${property} of this box is ${actual}; ${verdict.expected.entries.length} of the ${total} boxes in this group have ${verdict.expected.label}.${onlyReview ? " A background on its own may carry a meaning, such as a status." : otherKind ? " This box also has another size or background, so it may be another kind of box on purpose." : review ? " In a group this small it may be on purpose, such as a featured item." : ""}`,
         });
       }
     };

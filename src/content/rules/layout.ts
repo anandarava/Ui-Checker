@@ -32,6 +32,13 @@ const NEAR_MISS = 8;
 const MIN_GAP = 8;
 /** Parts up to this width are icons and markers. */
 const ICON_SIZE = 24;
+/**
+ * A box at least this much larger or smaller than its peers is another size on purpose (a card that
+ * spans two columns, a chart among sparklines), not a slip.
+ */
+const OTHER_SIZE = 1.25;
+/** A value this many members share is a second standard (the indent of a sub-level), not a slip. */
+const SECOND_STANDARD = 3;
 /** How many levels up a neighbour may be related to still count as "nearby". */
 const NEARBY_LEVELS = 3;
 
@@ -118,12 +125,21 @@ export function runLayoutRules(ctx: RuleContext): void {
       for (const side of SIDES) {
         const entries: Array<Entry<number>> = members.flatMap((el) => {
           const value = insetsOf(el)?.[side];
-          return value === null || value === undefined ? [] : [{ el, value }];
+          if (value === null || value === undefined) return [];
+          // The first item of a stack may leave out its top padding and the last its bottom padding:
+          // the padding of the container around them takes its place.
+          if (value === 0 && (side === "top" || side === "bottom") && elements[el].parent >= 0) {
+            const stack = flowChildren(elements[el].parent);
+            if (stack.length > 1 && stack[side === "top" ? 0 : stack.length - 1] === el) return [];
+          }
+          return [{ el, value }];
         });
         if (entries.length < 2) continue;
         const verdict = judge(bucketNumbers(entries, tolerance, px));
         if (verdict.kind === "same") continue;
-        const flagged = verdict.kind === "outlier" ? verdict.outliers : verdict.kind === "pair" ? [entries.slice().sort((a, b) => a.el - b.el)[1]] : [];
+        // A value that several members share is a second standard (the deeper indent of a sub-level).
+        const slips = verdict.kind === "outlier" ? verdict.buckets.filter((b) => b !== verdict.expected && b.entries.length < SECOND_STANDARD).flatMap((b) => b.entries) : [];
+        const flagged = verdict.kind === "outlier" ? slips : verdict.kind === "pair" ? [entries.slice().sort((a, b) => a.el - b.el)[1]] : [];
         for (const entry of flagged) {
           const list = odd.get(entry.el) ?? [];
           list.push({ side, actual: entry.value, expected: verdict.kind === "outlier" ? verdict.expected.label : null, verdict });
@@ -253,6 +269,8 @@ export function runLayoutRules(ctx: RuleContext): void {
           const usual = all.length > 0 ? median(all) : 0;
           const gaps = all.filter((v) => v <= Math.max(usual, 1) * 2);
           if (gaps.length < 2 || Math.max(...gaps) - Math.min(...gaps) <= tolerance) continue;
+          // Items that touch or sit as close as words (links with a "|" between them) are spaced by their text.
+          if (Math.max(...gaps) < MIN_GAP) continue;
           report(container, g, list(gaps), `The gaps between the items of this container are not equal: ${list(gaps)}.`, gaps);
         }
         if (along.length > 0 && across.length > 0 && !ctx.reported("LAY-03", container)) {
@@ -359,6 +377,16 @@ export function runLayoutRules(ctx: RuleContext): void {
   // LAY-05: size
   // ---------------------------------------------------------------------------
 
+  /**
+   * True when a size that differs from its peers reads as a slip: clearly apart from every one of them
+   * (three sizes that merely vary are not two alike and one odd), yet not a different size altogether.
+   */
+  const slip = (value: number, usual: number[], tolerance: number): boolean => {
+    if (usual.some((u) => Math.abs(u - value) <= tolerance)) return false;
+    const typical = median(usual);
+    return Math.max(value, typical) / Math.max(1, Math.min(value, typical)) < OTHER_SIZE;
+  };
+
   const sizeRule = (): void => {
     if (!ctx.runs("LAY-05")) return;
     const tolerance = ctx.tolerance("LAY-05");
@@ -374,8 +402,13 @@ export function runLayoutRules(ctx: RuleContext): void {
       const group = groups[g];
       if (group.kind === "level") continue;
       // Boxes without children whose size the layout sets: icons, avatars, images, fields. Table cells follow their column.
+      // A layer laid over its parent (the tint behind a chip) has the size of that parent.
+      const overlay = (i: number): boolean => {
+        const p = elements[i].parent;
+        return !inFlow(i) && p >= 0 && Math.abs(elements[i].box.width - elements[p].box.width) <= 2 && Math.abs(elements[i].box.height - elements[p].box.height) <= 2;
+      };
       const members = group.members.filter(
-        (i) => elements[i].children.length === 0 && !facts.isCell(i) && !facts.isRow(i) && (facts.hasBox(i) || REPLACED.has(elements[i].tag)) && !ctx.reported("LAY-05", i),
+        (i) => elements[i].children.length === 0 && !facts.isCell(i) && !facts.isRow(i) && (facts.hasBox(i) || REPLACED.has(elements[i].tag)) && !overlay(i) && !ctx.reported("LAY-05", i),
       );
       if (members.length < 3) continue;
       ctx.looked("LAY-05");
@@ -389,6 +422,7 @@ export function runLayoutRules(ctx: RuleContext): void {
         // another size are another kind of item (the cells of another column, a larger icon set).
         if (verdict.kind !== "outlier" || verdict.outliers.length > Math.max(1, Math.floor(entries.length * 0.15))) continue;
         for (const o of verdict.outliers) {
+          if (!slip(o.value, verdict.expected.entries.map((e) => e.value), tolerance)) continue;
           const found = odd.get(o.el) ?? { expected: {}, verdict };
           found.expected[axis] = verdict.expected.entries[0].value;
           odd.set(o.el, found);
@@ -426,12 +460,19 @@ export function runLayoutRules(ctx: RuleContext): void {
     const tolerance = ctx.tolerance("LAY-05");
     const size = (w: number, h: number): string => `${Math.round(w * 10) / 10} × ${px(h)}`;
 
-    /** Left and right end of the text inside the element, or null when it has none. */
+    /** Left and right end of what is inside the element (its text, icons and images), or null when it holds nothing. */
     const textSpan = (i: number): { left: number; right: number } | null => {
       let span: { left: number; right: number } | null = null;
+      const add = (left: number, end: number): void => {
+        span = span ? { left: Math.min(span.left, left), right: Math.max(span.right, end) } : { left, right: end };
+      };
       const walk = (n: number): void => {
         const t = elements[n].textBox;
-        if (t) span = span ? { left: Math.min(span.left, t.x), right: Math.max(span.right, t.x + t.width) } : { left: t.x, right: t.x + t.width };
+        if (t) add(t.x, t.x + t.width);
+        // An icon or image beside the text takes its room too, with the margin that keeps it apart.
+        if (n !== i && elements[n].children.length === 0 && inFlow(n) && (REPLACED.has(elements[n].tag) || !t)) {
+          add(elements[n].box.x - Math.max(0, elements[n].style.margin.left), right(elements[n]) + Math.max(0, elements[n].style.margin.right));
+        }
         for (const c of elements[n].children) walk(c);
       };
       walk(i);
@@ -467,7 +508,8 @@ export function runLayoutRules(ctx: RuleContext): void {
       // Width: nearly all members share it, and the odd one is not just hugging its text.
       const widths = judge(bucketNumbers(members.map((el) => ({ el, value: elements[el].box.width })), tolerance, px));
       if (widths.kind === "outlier" && widths.outliers.length <= Math.max(1, Math.floor(members.length * 0.15))) {
-        for (const o of widths.outliers) if (widthIsSet(o.el)) note(o.el, "width", widths.expected.entries[0].value, widths);
+        const usual = widths.expected.entries.map((e) => e.value);
+        for (const o of widths.outliers) if (widthIsSet(o.el) && slip(o.value, usual, tolerance)) note(o.el, "width", widths.expected.entries[0].value, widths);
       }
 
       // Height: most members share it. A box that is taller because its content is taller differs for a
@@ -632,6 +674,9 @@ export function runLayoutRules(ctx: RuleContext): void {
       const values = valueCounts(verdict.buckets);
       const severity = ctx.severity("LAY-04", verdict);
       if (verdict.kind === "outlier") {
+        // Where many members are off, each by another amount, they are not set on that edge at all
+        // (lines of centred text of different lengths).
+        if (!verdict.strong) continue;
         const usual = verdict.expected.entries[0].value;
         for (const o of verdict.outliers) {
           // A whole step away (an indented sub-item, an item on another row) is placed there on purpose.
@@ -676,11 +721,20 @@ export function runLayoutRules(ctx: RuleContext): void {
     const lines: Record<"left" | "right", Carrier[]> = { left: [], right: [] };
     const candidates: Array<{ el: number; side: "left" | "right"; edge: number; other: number }> = [];
 
+    /** Inside a sentence: the element, or the plain wrappers around it (a link around a span), sits in running text. */
+    const inSentence = (i: number): boolean => {
+      for (let p = elements[i].parent, level = 0; p >= 0 && level < 3; p = elements[p].parent, level++) {
+        if (elements[p].text !== "") return true;
+        if (elements[p].children.length > 1 || facts.hasBox(p)) return false;
+      }
+      return false;
+    };
+
     for (const el of elements) {
       const i = el.index;
       if (!inFlow(i) || el.parent < 0) continue;
       // Text in the middle of a sentence lines up with nothing.
-      if (elements[el.parent].text !== "") continue;
+      if (inSentence(i)) continue;
       const cell = facts.isCell(i) || facts.isRow(i);
       const boxed = facts.hasBox(i);
       const startText = el.text !== "" && textAtStart(el);
@@ -708,6 +762,12 @@ export function runLayoutRules(ctx: RuleContext): void {
           if (before > 1 && Math.abs(before - after) <= 1) return;
           // Only the element itself: a container that sits beside a sidebar is not "pushed away".
           if (level === 0 && after <= 1 && before > NEAR_MISS) return;
+          // The end of an item that stops where its content stops, with room left after it, is not placed on a line.
+          if (level === 0 && side !== start && before > NEAR_MISS) return;
+          // A container the element fills, which itself starts away from both ends of a row, is placed
+          // by that row (centred, pushed to the end, spread out), not on a line. The element itself may
+          // be set off by a margin of its own, which is what this check is about.
+          if (level > 0 && box.layout.direction === "row" && before > NEAR_MISS && after > NEAR_MISS) return;
           if (before > 1) break;
           near = side === "left" ? box.box.x : right(box);
           far = side === "left" ? right(box) : box.box.x;
@@ -720,7 +780,8 @@ export function runLayoutRules(ctx: RuleContext): void {
         const rightmost = start === "left" ? endsRow(i) : startsRow(i);
         if (leftmost) consider("left", el.box.x, right(el), true);
         if (rightmost) consider("right", right(el), el.box.x, true);
-      } else if (startText && el.textBox && startsRow(i)) {
+      } else if (startText && el.textBox && startsRow(i) && !(facts.isControl(el.parent) && facts.hasBox(el.parent))) {
+        // (The label of a button is placed by the padding of the button.)
         if (start === "left") consider("left", el.textBox.x, el.textBox.x + el.textBox.width, false);
         else consider("right", el.textBox.x + el.textBox.width, el.textBox.x, false);
       }

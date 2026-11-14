@@ -25,3 +25,30 @@ https://shoelace.style/components/card | Web Components with open shadow roots
 https://datatables.net/examples/basic_init/zero_configuration.html | jQuery data table with pagination
 https://www.chakra-ui.com/docs/components/table | Chakra UI
 https://react.fluentui.dev/?path=/docs/concepts-introduction--docs | Fluent UI, same-origin iframe
+
+# Second set, added when the rules were tuned after Phase 6: admin dashboards, data tables,
+# shops and long lists, the kind of page the checker is used on most.
+https://preview.tabler.io/ | Tabler dashboard
+https://preview.tabler.io/users.html | Tabler grid of user cards
+https://coreui.io/demos/bootstrap/5.0/free/ | CoreUI admin dashboard
+https://demo.themesberg.com/volt/pages/dashboard/dashboard.html | Volt Bootstrap dashboard
+https://flowbite-admin-dashboard.vercel.app/ | Flowbite admin dashboard, Tailwind
+https://ui.shadcn.com/examples/dashboard | shadcn dashboard, Radix and Tailwind
+https://the-internet.herokuapp.com/tables | plain sortable tables
+https://books.toscrape.com/ | product grid with prices
+https://demoqa.com/webtables | React table with a form
+https://www.ag-grid.com/example/ | virtualised data grid
+https://carbondesignsystem.com/components/data-table/usage/ | Carbon design system
+https://vuetifyjs.com/en/components/data-tables/basics/ | Vuetify data table
+https://element-plus.org/en-US/component/table.html | Element Plus on Vue
+https://www.gov.uk/ | government service home, lists of links
+https://docs.python.org/3/library/index.html | Sphinx documentation, long link lists
+https://www.w3.org/WAI/demos/bad/before/home.html | old table-layout news page
+https://www.bbc.com/news | news front, cards of several sizes
+https://stripe.com/pricing | marketing pricing page
+https://preview.tabler.io/datatables.html | Tabler data table page
+https://flowbite-admin-dashboard.vercel.app/crud/products/ | Flowbite product list with a toolbar
+https://demo.themesberg.com/volt/pages/transactions.html | Volt table of transactions
+https://ui.shadcn.com/examples/tasks | shadcn task table with filters
+https://www.w3schools.com/html/html_tables.asp | tutorial page, side menu
+https://github.com/trending | list of repositories

@@ -156,7 +156,7 @@ export function runTypographyRules(ctx: RuleContext): void {
         if (colour && kind) {
           // A link where its peers have plain text: the colour comes with it.
           ctx.report({ ...colour, message: `This is a ${kind.actual} where its peers are ${kind.expected ?? "something else"}, so its text colour differs too (${colour.actual}).` });
-        } else if (colour && colour.kind === "outlier") {
+        } else if (colour && (colour.kind === "outlier" || colour.kind === "pair")) {
           // Colour alone often carries meaning (a status, the current item): listed for review, not as a defect.
           ctx.report({ ...colour, type: "Review", severity: "Low", message: `${colour.message} A colour on its own may carry a meaning, such as a status or the current item.` });
         } else {

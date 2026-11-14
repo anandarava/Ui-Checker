@@ -66,7 +66,11 @@ export interface ValueFormat {
   thousands?: string;
 }
 
+/** "May" is the full name and the short name at once: it takes the form its peers use. */
+const EITHER_MONTH = "Mon/Month";
+
 function monthName(name: string): string {
+  if (name.toLowerCase() === "may") return EITHER_MONTH;
   return name.length <= 4 && name.toLowerCase() !== "june" && name.toLowerCase() !== "july" ? "Mon" : "Month";
 }
 
@@ -333,6 +337,11 @@ export function runContentRules(ctx: RuleContext): void {
           const format = valueFormat(el.text, el.style.textTransform);
           return format ? [{ el: i, format }] : [];
         });
+        // A date in May reads as either month form: it follows the form most of the other dates use.
+        const forms = formats.filter((f) => f.format.type === "date" && !f.format.format.includes(EITHER_MONTH)).map((f) => f.format.format);
+        const long = forms.filter((f) => f.includes("Month")).length;
+        const short = forms.filter((f) => f.includes("Mon") && !f.includes("Month")).length;
+        for (const f of formats) if (f.format.format.includes(EITHER_MONTH)) f.format = { ...f.format, format: f.format.format.replace(EITHER_MONTH, long > short ? "Month" : "Mon") };
         for (const type of ["date", "time", "number", "words"] as const) {
           const ofType = formats.filter((f) => f.format.type === type && !ctx.reported("FMT-01", f.el));
           // A column of dates with a few empty or special cells is still a column of dates.

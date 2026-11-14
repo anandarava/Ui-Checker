@@ -594,3 +594,42 @@ describe("GRP-02 and icon holders", () => {
     expect(found.keys).toEqual(["GRP-02 m4"]);
   });
 });
+
+describe("tuned on real sites: differences that are not slips", () => {
+  const avatars = (odd: number): string => {
+    let out = "";
+    for (let n = 1; n <= 6; n++) {
+      const size = n === 3 ? odd : 40;
+      out += `<span id="a${n}" data-box="${n * 60} 0 ${size} ${size}" style="${BOX}"></span>`;
+    }
+    return `<div data-box="0 0 600 100">${out}</div>`;
+  };
+
+  it("LAY-05 reports a box a little larger than its peers, not one of another size altogether", () => {
+    expect(scan(avatars(44), "normal", ["LAY-05"]).keys).toEqual(["LAY-05 a3"]);
+    // Twice the size is another kind of box (a chart among sparklines, a card that spans two columns).
+    expect(scan(avatars(80), "normal", ["LAY-05"]).keys).toEqual([]);
+  });
+
+  it("GRP-02 does not report an item that holds the part in another look", () => {
+    // Five cards with a photo (a drawn box without text); the sixth shows initials in a box of the same size.
+    const card = (n: number, initials: boolean): string =>
+      `<a id="c${n}" href="#" data-box="0 ${n * 60} 200 50"><span data-box="8 ${n * 60 + 5} 40 40" style="${BOX}${initials ? `; ${TEXT}` : ""}">${initials ? "SA" : ""}</span><b data-box="60 ${n * 60} 100 24" style="${TEXT}">Name ${n}</b></a>`;
+    const cards = (initials: boolean): string => `<nav>${[1, 2, 3, 4, 5, 6].map((n) => card(n, initials && n === 4)).join("")}</nav>`;
+    expect(scan(cards(true), "normal", ["GRP-02"]).keys).toEqual([]);
+  });
+
+  it("does not report the coloured words of a code sample", () => {
+    const words = items({ 2: "color:rgb(200, 30, 30); font-size:22px" });
+    expect(scan(words, "normal", ["TYP-02", "TYP-05"]).keys.length).toBeGreaterThan(0);
+    expect(scan(`<pre>${words}</pre>`, "normal", ["TYP-02", "TYP-05"]).keys).toEqual([]);
+    expect(scan(`<div><code>${words}</code></div>`, "normal", ["TYP-02", "TYP-05"]).keys).toEqual([]);
+  });
+
+  it("FMT-01 reads a date in May in the month form its peers use", () => {
+    const dates = (texts: string[]): string => `<div>${texts.map((t, n) => `<span id="d${n + 1}" style="${TEXT}">${t}</span>`).join("")}</div>`;
+    expect(scan(dates(["March 3, 2026", "April 9, 2026", "May 30, 2026", "August 1, 2026", "October 7, 2026"]), "normal", ["FMT-01"]).keys).toEqual([]);
+    expect(scan(dates(["Mar 3, 2026", "Apr 9, 2026", "May 30, 2026", "Aug 1, 2026", "Oct 7, 2026"]), "normal", ["FMT-01"]).keys).toEqual([]);
+    expect(scan(dates(["March 3, 2026", "April 9, 2026", "May 30, 2026", "Aug 1, 2026", "October 7, 2026"]), "normal", ["FMT-01"]).keys).toEqual(["FMT-01 d4"]);
+  });
+});

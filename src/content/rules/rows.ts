@@ -66,6 +66,9 @@ export function runRowRules(ctx: RuleContext): void {
       });
     };
 
+    /** Icons in a line of text that are off the middle of the text: reported after the loop. */
+    const inline: Array<{ el: number; delta: number; key: string }> = [];
+
     for (const el of elements) {
       // Items of one row: centred on purpose (align-items: center), or all of one height.
       if (el.layout.direction === "row" && el.text === "" && !el.layout.alignItems.includes("baseline")) {
@@ -101,20 +104,29 @@ export function runRowRules(ctx: RuleContext): void {
           ctx.looked("LAY-07");
           const delta = centre(kid) - line;
           if (Math.abs(delta) <= tolerance || ctx.reported("LAY-04", k)) continue;
-          const where = `${px(Math.abs(delta))} ${delta > 0 ? "lower" : "higher"}`;
-          ctx.report({
-            ruleId: "LAY-07",
-            element: k,
-            group: -1,
-            kind: "pair",
-            property: "vertical position in the line",
-            expected: "centred on the text next to it",
-            actual: `${where} than the text`,
-            values: [],
-            message: `This icon sits ${where} than the middle of the text next to it.`,
-          });
+          inline.push({ el: k, delta, key: `${kid.tag}|${Math.round(kid.box.width)}|${Math.round(kid.box.height)}|${Math.round(delta * 2)}` });
         }
       }
+    }
+
+    // The same kind of icon, the same distance off the text, three times or more: that is how this
+    // page sets its icons (on the baseline of the text), which is consistent. One that differs is reported.
+    const repeats = new Map<string, number>();
+    for (const i of inline) repeats.set(i.key, (repeats.get(i.key) ?? 0) + 1);
+    for (const { el, delta, key } of inline) {
+      if ((repeats.get(key) ?? 0) >= 3) continue;
+      const where = `${px(Math.abs(delta))} ${delta > 0 ? "lower" : "higher"}`;
+      ctx.report({
+        ruleId: "LAY-07",
+        element: el,
+        group: -1,
+        kind: "pair",
+        property: "vertical position in the line",
+        expected: "centred on the text next to it",
+        actual: `${where} than the text`,
+        values: [],
+        message: `This icon sits ${where} than the middle of the text next to it.`,
+      });
     }
   };
 
@@ -249,10 +261,14 @@ export function runRowRules(ctx: RuleContext): void {
   const controlRowRule = (): void => {
     if (!ctx.runs("LAY-10")) return;
     const tolerance = ctx.tolerance("LAY-10");
+    /** Odd controls, by what differs: the same difference in three rows or more is how the page builds that row. */
+    const odd = new Map<string, Array<() => void>>();
+    /** Controls already found odd in a larger group: not compared again in a group inside it. */
+    const held = new Set<number>();
     for (const g of ctx.order) {
       const group = groups[g];
       if (!group.controls) continue;
-      const members = group.members.filter((i) => inFlow(i) && !ctx.reported("LAY-10", i));
+      const members = group.members.filter((i) => inFlow(i) && !ctx.reported("LAY-10", i) && !held.has(i));
       if (members.length < 2) continue;
       ctx.looked("LAY-10");
       const entries: Array<Entry<number>> = members.map((el) => ({ el, value: elements[el].box.height }));
@@ -262,13 +278,20 @@ export function runRowRules(ctx: RuleContext): void {
       const severity = ctx.severity("LAY-10", verdict);
       if (verdict.kind === "outlier") {
         for (const o of verdict.outliers) {
-          ctx.report({ ruleId: "LAY-10", element: o.el, group: g, kind: "outlier", severity, property: "height", expected: verdict.expected.label, actual: px(o.value), values, message: `This control is ${px(o.value)} high; the ${verdict.expected.entries.length} other controls of its row are ${verdict.expected.label}.` });
+          const key = `${elements[o.el].tag}|${px(o.value)}|${verdict.expected.label}`;
+          const expected = verdict.expected;
+          held.add(o.el);
+          odd.set(key, [...(odd.get(key) ?? []), () => ctx.report({ ruleId: "LAY-10", element: o.el, group: g, kind: "outlier", severity, property: "height", expected: expected.label, actual: px(o.value), values, message: `This control is ${px(o.value)} high; the ${expected.entries.length} other controls of its row are ${expected.label}.` })]);
         }
       } else {
         const [a, b] = entries.slice().sort((x, y) => x.el - y.el);
+        // Two small icon buttons (a sort arrow and a filter icon) have the size of their icons.
+        if (Math.max(a.value, b.value) <= INLINE_ICON / 2 + 8 && elements[a.el].text === "" && elements[b.el].text === "") continue;
         ctx.report({ ruleId: "LAY-10", element: b.el, group: g, kind: "pair", severity, property: "height", expected: null, actual: px(b.value), values, message: `The two controls of this row have different heights: ${px(a.value)} and ${px(b.value)}.` });
       }
     }
+    // A smaller button that sits in every toolbar of the page the same way is that toolbar's design.
+    for (const reports of odd.values()) if (reports.length < 3) for (const report of reports) report();
   };
 
   centringRule();

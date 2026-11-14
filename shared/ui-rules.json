@@ -342,17 +342,6 @@
       "implemented": true
     },
     {
-      "id": "TXT-02",
-      "name": "Shortened text cannot be read in full",
-      "category": "content",
-      "phase": "5",
-      "description": "Text is shortened with an ellipsis and nothing on the element (a title or a label) holds the full text.",
-      "fix": "Offer the full text in a title or tooltip, or give the text room.",
-      "severity": "Medium",
-      "enabled": true,
-      "implemented": true
-    },
-    {
       "id": "TXT-03",
       "name": "Text shortened in different ways",
       "category": "content",

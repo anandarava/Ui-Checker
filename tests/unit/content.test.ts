@@ -42,7 +42,7 @@ interface Found {
   keys: string[];
 }
 
-const NEW_RULES = ["TYP-07", "TXT-01", "TXT-02", "TXT-03", "FMT-01"];
+const NEW_RULES = ["TYP-07", "TXT-01", "TXT-03", "FMT-01"];
 
 function scan(html: string, only: string[] = NEW_RULES): Found {
   document.body.innerHTML = html;
@@ -118,29 +118,6 @@ describe("valueFormat", () => {
     expect(valueFormat("jQuery")).toBeNull();
     expect(valueFormat("a.person@example.test")).toBeNull();
     expect(valueFormat("A sentence of more than four words here")).toBeNull();
-  });
-});
-
-describe("TXT-02: shortened text that cannot be read in full", () => {
-  it("reports a text the browser shortens when nothing holds the full text", () => {
-    const found = scan(`
-      <div id="a" style="${TEXT}; ${CUT}" data-scroll="300">A very long value that does not fit</div>
-      <div id="b" style="${TEXT}; ${CUT}" data-scroll="300" title="A very long value that does not fit">A very long value that does not fit</div>
-      <div id="c" style="${TEXT}; ${CUT}">Fits</div>`);
-    expect(found.keys).toEqual(["TXT-02 a Definite"]);
-  });
-
-  it("accepts a title on a wrapper or on the text inside", () => {
-    const found = scan(`
-      <div title="Full text"><div id="a" style="${TEXT}; ${CUT}" data-scroll="300">Full te</div></div>
-      <div id="b" style="${TEXT}; ${CUT}" data-scroll="300"><span title="Full text">Full te</span></div>
-      <div id="c" style="${TEXT}; ${CUT}" data-scroll="300" aria-label="Full text">Full te</div>`);
-    expect(found.keys).toEqual([]);
-  });
-
-  it("lists a shortened link for review: the page it opens may show the text", () => {
-    const found = scan(`<a id="a" href="#" style="${TEXT}; ${CUT}; display:block" data-scroll="300">A long headline that is cut</a>`, ["TXT-02"]);
-    expect(found.keys).toEqual(["TXT-02 a Review"]);
   });
 });
 

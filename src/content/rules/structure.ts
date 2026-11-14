@@ -122,6 +122,14 @@ export function runStructureRules(ctx: RuleContext): void {
             }
           }
         }
+        // An item that is nothing but the icon (a wrapper around it, next to a label that is an item of
+        // its own) does not "have an icon as a part": it is the icon. Where most owners are like that, the
+        // group mixes icon holders and labels, and a label is not missing anything.
+        const isWhole = (owner: number): boolean => {
+          const kids = elements[owner].children;
+          return elements[owner].text === "" && kids.length === 1 && groups[part].members.includes(kids[0]);
+        };
+        if (Array.from(owners).filter(isWhole).length * 2 >= owners.size) continue;
         have.set(part, owners);
       }
       const count = (m: number): number => parts.filter((p) => have.get(p)?.has(m)).length;

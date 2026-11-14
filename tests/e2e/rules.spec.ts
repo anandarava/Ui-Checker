@@ -38,8 +38,6 @@ const UNNAMED: Record<string, string[]> = {
   compliance: ["LAY-03"],
   // D6 moves the location item of both event cards; the manifest names the first.
   dashboard: ["LAY-07"],
-  // D3 takes the title off every shortened cell; the manifest names the first.
-  table: ["TXT-02"],
 };
 
 function describe(f: FoundFinding): string {
@@ -49,7 +47,7 @@ function describe(f: FoundFinding): string {
 test.describe("rules", () => {
   test("every rule of the catalogue is built", () => {
     expect(BUILT.size).toBe(catalogue.rules.length);
-    expect(BUILT.size).toBe(28);
+    expect(BUILT.size).toBe(27);
   });
 
   for (const name of FIXTURES) {
@@ -162,10 +160,9 @@ test.describe("rules", () => {
     await page.goto(fixtureUrl("table-defects"));
     const table = (await findFindings(page)).findings;
     expect(by(table, "FMT-01", "date-7")).toMatchObject({ kind: "outlier", type: "Definite", property: "date format", actual: "Mon D, YYYY", expected: "DD/MM/YYYY" });
-    expect(by(table, "TXT-02", "email-1")).toMatchObject({ type: "Definite", group: -1 });
     expect(by(table, "TXT-03", "job-3").actual).toBe('typed " ..."');
-    // Every email and the three long job titles are shortened by their column.
-    expect(table.filter((f) => f.ruleId === "TXT-02")).toHaveLength(12);
+    // Shortened text with no tooltip is not checked: that is a functional matter, not a visual inconsistency.
+    expect(table.some((f) => f.message.includes("holds the full text"))).toBe(false);
 
     await page.goto(fixtureUrl("compliance-defects"));
     const compliance = (await findFindings(page)).findings.filter((f) => f.ruleId === "TXT-03");

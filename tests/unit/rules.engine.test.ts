@@ -504,7 +504,7 @@ describe("second wave: group structure and box style", () => {
 
   it("every rule of the catalogue has a check", () => {
     expect(RULES.every((r) => r.implemented)).toBe(true);
-    expect(RULES).toHaveLength(28);
+    expect(RULES).toHaveLength(27);
   });
 });
 
@@ -573,5 +573,24 @@ describe("tiles and cards of one group", () => {
     // Stretched cards: the space between the parts is what is left over.
     const found = scan(tiles({}, { 2: "230 44 180 16", 3: "10 134 180 16", 5: "10 228 180 16" }), "normal", ["LAY-03"]);
     expect(found.keys).toEqual([]);
+  });
+});
+
+describe("GRP-02 and icon holders", () => {
+  /** A row of detail items: an icon in a wrapper of its own, then a label. Both are spans. */
+  const detail = (n: number, x: number, text: string): string =>
+    `<div data-box="${x} 0 120 20"><span id="i${n}" data-box="${x} 3 14 14"><svg data-box="${x} 3 14 14"></svg></span><span id="l${n}" data-box="${x + 22} 0 90 20" style="${TEXT}">${text}</span></div>`;
+
+  it("does not report a label for lacking the icon that sits next to it in a wrapper of its own", () => {
+    const row = (y: number): string => `<div data-box="0 ${y} 400 20">${detail(1, 0, "Dec 12, 2026")}${detail(2, 130, "Head Office")}${detail(3, 260, "8:00 AM")}</div>`;
+    const found = scan(`<div>${row(0)}${row(30)}</div>`, "normal", ["GRP-02"]);
+    expect(found.keys).toEqual([]);
+  });
+
+  it("still reports the item that lacks the icon its peers have beside their label", () => {
+    const item = (n: number, icon: boolean): string =>
+      `<a id="m${n}" href="#" data-box="0 ${n * 30} 200 24">${icon ? `<svg data-box="8 ${n * 30 + 5} 14 14"></svg>` : ""}<span data-box="30 ${n * 30} 100 24" style="${TEXT}">Item ${n}</span></a>`;
+    const found = scan(`<nav>${[1, 2, 3, 4, 5, 6].map((n) => item(n, n !== 4)).join("")}</nav>`, "normal", ["GRP-02"]);
+    expect(found.keys).toEqual(["GRP-02 m4"]);
   });
 });

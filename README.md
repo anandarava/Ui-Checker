@@ -18,9 +18,9 @@ extension, so testers who know one already know the other.
 
 **Phases 0 to 6 are done.** The scan measures every visible element of the
 page, finds the *peer groups* (the elements that should look the same) and runs
-**all 28 rules** on them: typography, layout and spacing, group structure, box
-style, and text and content (cut-off and shortened text, value formats, link
-style, images that do not load). Differences that are often intentional (a colour on its own, a
+**all 27 rules** on them: typography, layout and spacing, group structure, box
+style, and text and content (cut-off text, value formats, link style, images
+that do not load). Differences that are often intentional (a colour on its own, a
 featured card, a sort icon on some columns) are listed for review instead of as
 defects.
 

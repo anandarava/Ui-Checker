@@ -270,6 +270,7 @@ How the rules work, where the plan left it open:
 - **LAY-09** matches a header with the cells that start where it starts and are as wide, compares their alignment and the edge they align on, and reports a cell aligned differently from the rest of its column.
 - **LAY-10** compares the heights of the controls of one row. Uneven gaps between such controls are reported under LAY-10 instead of LAY-03.
 - **GRP-01** reports a shape with no text and no content among two or more controls, in an element that is a group of controls by its role or is drawn as one box. Thin lines and elements with a decoration role are dividers, not strays.
+- **GRP-02, icon holders** (changed after Phase 6): an item that is nothing but an icon (a wrapper around it, next to a label that is an item of its own) is not an item "with an icon as a part". Where most owners of a part are like that, the group mixes icon holders and labels, and a label is not reported as missing an icon.
 - **GRP-02** follows the plan's split: a part that at least three quarters of a group of five or more have is **missing** in the rest (definite); a part that between a third and three quarters have is listed once **for review**; a part fewer have is an extra of those items. Parts are small things (an icon, a label). A missing **text** is always for review and only counted where the items are links or buttons; the rows and data cells of a table are not judged, since an empty cell is data.
 - **GRP-03** takes a divider to be a block with content and a line down or along one side that separates it from a neighbour, and measures how far the line stops from the edges of the nearest drawn container.
 - **BOX-01 to BOX-03** compare the members of a group that are drawn as boxes. A border only counts when it runs all the way round and is visible; a circle or pill is "fully rounded" whatever its size; members that touch each other are not compared for radius and border. A different **background** is always for review (it often carries a meaning), and so is any difference in a group of fewer than five (a featured card).
@@ -325,7 +326,6 @@ Noise removed after the first run on the real-site list: underlines under links 
 |---|---|
 | TYP-07 | Link style differs (underline, colour) |
 | TXT-01 | Text is cut off or runs out of its box |
-| TXT-02 | Shortened text cannot be read in full |
 | TXT-03 | Text shortened in different ways |
 | FMT-01 | Value format differs in one column or list field |
 | IMG-01 | Image does not load (added in Phase 6) |
@@ -382,7 +382,9 @@ Build everything in **Look and feel** above, by copying the accessibility extens
 
 **Size:** M
 
-**Status: done.** Two parts: a **design-scale audit** of the whole page, and **five new rules** about text. The catalogue now has 27 rules, all built.
+**Status: done.** Two parts: a **design-scale audit** of the whole page, and new rules about text.
+
+**TXT-02 was removed after Phase 6.** It reported text shortened with "…" that has no tooltip. A missing tooltip is a functional matter, not a visual inconsistency, and this tool is about padding, fonts, alignment and the like. Truncated cells without a title (table defect D3) are therefore no longer reported. The catalogue has 27 rules.
 
 ### The design-scale audit (`src/content/audit.ts`)
 
@@ -408,7 +410,6 @@ These marks are **observations about the whole page, not findings**: they are no
 | TYP-07 | Link style: links that are peers (a menu, the name links of a column) and are underlined differently | Definite |
 | TYP-07 | Link style: the other links of the page that are styled as links, compared by where they sit (in a sentence or on their own, and on which background): underline, and a colour one or two links have | Needs review: they are not peers |
 | TXT-01 | Text cut off by its own box with no ellipsis, or running out of the box it is drawn in | Definite; cut off at the bottom is Needs review |
-| TXT-02 | Text the browser shortens (ellipsis or line clamp) with no `title`, `aria-label` or `aria-describedby` on it, its wrapper or its content | Definite; Needs review inside a link or button |
 | TXT-03 | Peers that shorten their text differently: an ellipsis typed into the text where the others are shortened by the browser, or typed ellipses written differently ("...", "…", with a space, after a dangling separator) | Definite |
 | FMT-01 | Values of one column or list field in different formats: dates and times | Definite |
 | FMT-01 | Numbers: one unit written two ways ("5%" and "5 %"), "1,000" against "1000"; a single lower-case label among capitalised values | Needs review |
@@ -438,7 +439,6 @@ Not done, or not checked:
 - **Compliance D7** (status rows in 20 px, every other list in 16 px) has **no rule**. The audit lists 20 px with its elements, but nothing says "this list is larger than the other lists". It needs a comparison between unrelated groups, which is not built.
 - **Capitalisation** is only compared in one narrow case (one lower-case value among capitalised ones, not on links or buttons). "Title Case" against "Sentence case" is not compared: names make it unreliable.
 - **Dates and times** are recognised in English and numeric forms only. A date with a month name in another language is read as text and not compared.
-- **TXT-02** cannot see a tooltip that a script shows on hover; the finding says so and can be marked intentional.
 - **Border colours** are read from the top border only, so the colour of a border on one other side is not in the colour list.
 - **Radii, shadows, line heights and letter spacing** are not in the audit, and such tokens are skipped.
 - **Click-through** outlines all uses and scrolls to the first; there is no "next use" stepper. The panel and the report show the first three elements of each value.
@@ -606,7 +606,7 @@ Fixture `fixtures/table-defects.html` and `table-clean.html`. A different page t
 **Seeded defects:**
 1. View toggle group contains two stray round markers (a black dot and an orange ring) that don't match the toggle buttons (GRP-01)
 2. Ellipsis inconsistent: "Senior Software …" (space before) vs "Trainee Software…" and "Principal Softwa…" (TXT-03)
-3. Truncated emails and job titles: check that the full text is available (tooltip) (TXT-02)
+3. Truncated emails and job titles: check that the full text is available (tooltip) (not checked: out of scope, see Phase 5)
 4. Sort icon on Employee ID, Name and Date of Joining only (GRP-02, needs review: probably intentional)
 5. Tab text "Employees Directory" starts about 6 px right of the table text column (x 146 vs 140) (LAY-04)
 6. Toolbar controls slightly different heights (Customize Columns vs Filter vs view toggle) (LAY-10)

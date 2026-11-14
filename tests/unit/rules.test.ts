@@ -29,7 +29,7 @@ describe("rule catalogue", () => {
   });
 
   it("marks the rules of the page-wide audit as phase 5", () => {
-    expect(RULES.filter((r) => r.phase === "5").map((r) => r.id).sort()).toEqual(["FMT-01", "TXT-01", "TXT-02", "TXT-03", "TYP-07"]);
+    expect(RULES.filter((r) => r.phase === "5").map((r) => r.id).sort()).toEqual(["FMT-01", "TXT-01", "TXT-03", "TYP-07"]);
   });
 
   it("uses positive tolerances, and ratios above 1", () => {

@@ -3,12 +3,11 @@
  *
  *   TYP-07  links that are styled as links but not all the same way
  *   TXT-01  text that runs out of its box, or is cut off with no ellipsis
- *   TXT-02  text shortened by the browser with nothing that holds the full text
  *   TXT-03  peers that shorten their text in different ways
  *   FMT-01  values of one column or list field written in different formats
  *   IMG-01  an image that failed to load (PLAN.md, Phase 6)
  *
- * TXT-01, TXT-02, IMG-01 and the loose links of TYP-07 are page-wide: they are not
+ * TXT-01, IMG-01 and the loose links of TYP-07 are page-wide: they are not
  * about one peer group. Everything is read from the snapshot.
  */
 import type { ElementSnapshot } from "../snapshot";
@@ -183,38 +182,6 @@ export function runContentRules(ctx: RuleContext): void {
   const within = (i: number, test: (a: number) => boolean, levels: number): boolean => {
     for (let a = i, n = 0; a >= 0 && n <= levels; a = elements[a].parent, n++) if (test(a)) return true;
     return false;
-  };
-
-  // ---------------------------------------------------------------------------
-  // TXT-02: shortened by the browser, and nothing holds the full text
-  // ---------------------------------------------------------------------------
-
-  const fullTextRule = (): void => {
-    if (!ctx.runs("TXT-02")) return;
-    for (const el of elements) {
-      if (!el.truncated || !shown(el.index) || facts.isControl(el.index)) continue;
-      const text = el.text || el.children.map((c) => elements[c].text).find(Boolean) || "";
-      if (text === "") continue;
-      ctx.looked("TXT-02");
-      const titled = within(el.index, (a) => elements[a].titled, 2) || el.children.some((c) => elements[c].titled);
-      if (titled) continue;
-      // What a link or button opens usually shows the text in full.
-      const opens = within(el.index, (a) => facts.isInteractive(a), 3) || el.children.some((c) => facts.isInteractive(c));
-      ctx.report({
-        ruleId: "TXT-02",
-        element: el.index,
-        group: -1,
-        kind: "outlier",
-        property: "full text",
-        expected: "a title or tooltip with the full text",
-        actual: "shortened, no title",
-        values: [],
-        ...(opens ? { type: "Review" as const, severity: "Low" as const } : {}),
-        message: opens
-          ? `"${text.slice(0, 30)}" is shortened with an ellipsis and has no title that holds the full text. It may be readable in full on the page this opens.`
-          : `"${text.slice(0, 30)}" is shortened with an ellipsis and nothing on it (a title or a label) holds the full text. If a tooltip appears on hover, mark this as intentional.`,
-      });
-    }
   };
 
   // ---------------------------------------------------------------------------
@@ -511,7 +478,6 @@ export function runContentRules(ctx: RuleContext): void {
   };
 
   imageRule();
-  fullTextRule();
   cutOffRule();
   groupRules();
   linkRule();
